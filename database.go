@@ -1,34 +1,39 @@
 package main
 
 import (
-    "database/sql"
-    "errors"
-    "os"
+	"database/sql"
+	"errors"
+	"os"
 
-    _ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var DB *sql.DB
 
 func InitDB() error {
-    dsn := os.Getenv("DB_DSN")
+	// 加载项目目录下的 .env 文件
+	if err := godotenv.Load(); err != nil {
+		return err
+	}
 
-    if dsn == "" {
-        return errors.New("DB_DSN 环境变量未设置")
-    }
+	dsn := os.Getenv("DB_DSN")
 
-    var err error
+	if dsn == "" {
+		return errors.New("DB_DSN 环境变量未设置")
+	}
 
-    DB, err = sql.Open("mysql", dsn)
-    if err != nil {
-        return err
-    }
+	var err error
 
-    err = DB.Ping()
-    if err != nil {
-        return err
-    }
+	DB, err = sql.Open("mysql", dsn)
+	if err != nil {
+		return err
+	}
 
-    return nil
+	err = DB.Ping()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
-
