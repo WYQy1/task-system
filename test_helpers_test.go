@@ -10,7 +10,6 @@ func setupTestDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("连接测试数据库失败：%v", err)
 	}
-
 	t.Cleanup(func() {
 		DB.Close()
 	})

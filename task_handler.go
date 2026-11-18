@@ -68,7 +68,7 @@ type Task struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Status      string    `json:"status"`
-	CreatedAt   time.Time `json:"create_at"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 type taskScanner interface {
 	Scan(dest ...any) error
@@ -76,9 +76,13 @@ type taskScanner interface {
 
 func scanTask(scanner taskScanner) (Task, error) {
 	var task Task
-	err := scanner.Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt)
+	var description sql.NullString
+	err := scanner.Scan(&task.ID,&task.UserID,&task.Title,&description,&task.Status,&task.CreatedAt)
 	if err != nil {
 		return Task{}, err
+	}
+	if description.Valid {
+		task.Description = description.String
 	}
 	return task, nil
 }

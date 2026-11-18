@@ -335,6 +335,7 @@ func TestDeleteTaskNotFound(t *testing.T) {
 func TestUpdateTaskInvalidStatus(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
 	result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "测试任务", "测试描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)
@@ -361,6 +362,7 @@ func TestUpdateTaskInvalidStatus(t *testing.T) {
 func TestUpdateTask(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
 	result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "测试任务", "原始描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)
@@ -397,6 +399,7 @@ func TestUpdateTaskNotFound(t *testing.T) {
 func TestUpdateTaskInvalidTitle(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
 	result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "原始任务", "原始描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)
@@ -415,6 +418,7 @@ func TestUpdateTaskInvalidTitle(t *testing.T) {
 func TestUpdateTaskTitleTooLong(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
 	result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "原始任务", "原始描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)
@@ -433,6 +437,7 @@ func TestUpdateTaskTitleTooLong(t *testing.T) {
 func TestUpdateTaskTitleEmpty(t *testing.T){
    setupTestDB(t)
    userID := createTestUser(t)
+   defer deleteTestUser(t, userID)
    result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "原始任务", "原始描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)

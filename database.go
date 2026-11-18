@@ -2,8 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
 	"os"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -11,44 +12,40 @@ import (
 
 var DB *sql.DB
 
-func InitDB() error {
+func initDBFromEnv(envKey string) error {
 	// 加载项目目录下的 .env 文件
 	if err := godotenv.Load(); err != nil {
-		return err
+		return fmt.Errorf("加载 .env 文件失败: %w", err)
 	}
 
-	dsn := os.Getenv("DB_DSN")
-
+	// 获取数据库连接配置
+	dsn := strings.TrimSpace(os.Getenv(envKey))
 	if dsn == "" {
-		return errors.New("DB_DSN 环境变量未设置")
+		return fmt.Errorf("%s 环境变量未设置", envKey)
 	}
 
-	var err error
-
-	DB, err = sql.Open("mysql", dsn)
+	// 创建数据库连接
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		return err
+		return fmt.Errorf("创建数据库连接失败: %w", err)
 	}
 
-	err = DB.Ping()
-	if err != nil {
-		return err
+	// 检查数据库连接是否正常
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
+		return fmt.Errorf("数据库连接测试失败: %w", err)
 	}
 
+	DB = db
 	return nil
 }
+
+// 初始化正式数据库
+func InitDB() error {
+	return initDBFromEnv("DB_DSN")
+}
+
+// 初始化测试数据库
 func InitTestDB() error {
-	dsn := "task_user:***REMOVED***@tcp(172.21.112.1:3306)/task_system_test?parseTime=true"
-
-	var err error
-	DB, err = sql.Open("mysql", dsn)
-	if err != nil {
-		return err
-	}
-
-	if err = DB.Ping(); err != nil {
-		return err
-	}
-
-	return nil
+	return initDBFromEnv("TEST_DB_DSN")
 }

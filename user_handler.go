@@ -60,7 +60,7 @@ type User struct { //业务数据结构体负责描述服务端实际管理什�
 }
 
 func CreateUser(c *gin.Context) {
-	var request UpdateUserRequest
+	var request CreateUserRequest
 	err := c.ShouldBindJSON(&request) //将请求体 JSON 绑定到结构体
 	if err != nil {                   //err != nil 表示出错了
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
@@ -160,7 +160,7 @@ func UpdateUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	var request CreateUserRequest
+	var request UpdateUserRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求数据格式错误"})
 		return
