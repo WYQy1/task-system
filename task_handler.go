@@ -77,7 +77,7 @@ type taskScanner interface {
 func scanTask(scanner taskScanner) (Task, error) {
 	var task Task
 	var description sql.NullString
-	err := scanner.Scan(&task.ID,&task.UserID,&task.Title,&description,&task.Status,&task.CreatedAt)
+	err := scanner.Scan(&task.ID, &task.UserID, &task.Title, &description, &task.Status, &task.CreatedAt)
 	if err != nil {
 		return Task{}, err
 	}

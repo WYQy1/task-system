@@ -99,7 +99,7 @@ func TestCreateTaskTitleTooLong(t *testing.T) {
 		t.Errorf("标题为空时不应该创建任务，实际创建了 %d 条", count)
 	}
 }
-func TestCreateTaskTitleEmpty(t *testing.T){
+func TestCreateTaskTitleEmpty(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
 	defer deleteTestUser(t, userID)
@@ -119,28 +119,29 @@ func TestCreateTaskTitleEmpty(t *testing.T){
 	}
 
 }
-//纯空白
+
+// 纯空白
 func TestCreateTaskTitleWhitespace(t *testing.T) {
-    setupTestDB(t)
-    userID := createTestUser(t)
-    defer deleteTestUser(t, userID)
+	setupTestDB(t)
+	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
 
-    body := `{"title":"   ","description":"自动化任务测试"}`
-    r := SetupRouter()
-    w := performRequest(r, "POST", "/users/"+strconv.FormatInt(userID, 10)+"/tasks", strings.NewReader(body))
+	body := `{"title":"   ","description":"自动化任务测试"}`
+	r := SetupRouter()
+	w := performRequest(r, "POST", "/users/"+strconv.FormatInt(userID, 10)+"/tasks", strings.NewReader(body))
 
-    if w.Code != 400 {
-        t.Fatalf("状态码错误，期望400，实际得到%d，响应：%s", w.Code, w.Body.String())
-    }
+	if w.Code != 400 {
+		t.Fatalf("状态码错误，期望400，实际得到%d，响应：%s", w.Code, w.Body.String())
+	}
 
-    var count int
-    err := DB.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ?", userID).Scan(&count)
-    if err != nil {
-        t.Fatalf("查询任务数量失败：%v", err)
-    }
-    if count != 0 {
-        t.Errorf("纯空格标题不应该创建任务，实际创建了%d条", count)
-    }
+	var count int
+	err := DB.QueryRow("SELECT COUNT(*) FROM tasks WHERE user_id = ?", userID).Scan(&count)
+	if err != nil {
+		t.Fatalf("查询任务数量失败：%v", err)
+	}
+	if count != 0 {
+		t.Errorf("纯空格标题不应该创建任务，实际创建了%d条", count)
+	}
 }
 func TestGetTasks(t *testing.T) {
 	setupTestDB(t)
@@ -434,11 +435,11 @@ func TestUpdateTaskTitleTooLong(t *testing.T) {
 		t.Fatalf("状态码错误，期望400，实际得到%d，响应：%s", w.Code, w.Body.String())
 	}
 }
-func TestUpdateTaskTitleEmpty(t *testing.T){
-   setupTestDB(t)
-   userID := createTestUser(t)
-   defer deleteTestUser(t, userID)
-   result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "原始任务", "原始描述", "pending")
+func TestUpdateTaskTitleEmpty(t *testing.T) {
+	setupTestDB(t)
+	userID := createTestUser(t)
+	defer deleteTestUser(t, userID)
+	result, err := DB.Exec("INSERT INTO tasks (user_id, title, description, status) VALUES (?, ?, ?, ?)", userID, "原始任务", "原始描述", "pending")
 	if err != nil {
 		t.Fatalf("创建测试任务失败：%v", err)
 	}
@@ -453,11 +454,11 @@ func TestUpdateTaskTitleEmpty(t *testing.T){
 		t.Fatalf("状态码错误，期望400，实际得到%d，响应：%s", w.Code, w.Body.String())
 	}
 	var title string
-    err = DB.QueryRow("SELECT title FROM tasks WHERE id = ?", taskID).Scan(&title)
-    if err != nil {
-      t.Fatalf("查询任务失败：%v", err)
-    }
-    if title != "原始任务" {
-      t.Errorf("标题不应该被修改，实际得到：%s", title)
-    }
+	err = DB.QueryRow("SELECT title FROM tasks WHERE id = ?", taskID).Scan(&title)
+	if err != nil {
+		t.Fatalf("查询任务失败：%v", err)
+	}
+	if title != "原始任务" {
+		t.Errorf("标题不应该被修改，实际得到：%s", title)
+	}
 }
