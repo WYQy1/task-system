@@ -5,8 +5,8 @@ import (
 	"errors"
 	"os"
 
-	"github.com/joho/godotenv"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 var DB *sql.DB
@@ -32,6 +32,21 @@ func InitDB() error {
 
 	err = DB.Ping()
 	if err != nil {
+		return err
+	}
+
+	return nil
+}
+func InitTestDB() error {
+	dsn := "task_user:***REMOVED***@tcp(172.21.112.1:3306)/task_system_test?parseTime=true"
+
+	var err error
+	DB, err = sql.Open("mysql", dsn)
+	if err != nil {
+		return err
+	}
+
+	if err = DB.Ping(); err != nil {
 		return err
 	}
 
