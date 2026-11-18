@@ -13,8 +13,8 @@ import (
 var DB *sql.DB
 
 func initDBFromEnv(envKey string) error {
-	// 加载项目目录下的 .env 文件
-	if err := godotenv.Load(); err != nil {
+	// .env 只服务于本地开发；没有这个文件时继续读进程环境变量
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("加载 .env 文件失败: %w", err)
 	}
 
