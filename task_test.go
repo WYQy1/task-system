@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"task-system/model"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestCreateTask(t *testing.T) {
 	if w.Code != 201 {
 		t.Fatalf("状态码错误,期望201,实际得到%d", w.Code)
 	}
-	var task Task
+	var task model.Task
 	err := DB.QueryRow("SELECT id, user_id, title,description,status FROM tasks WHERE user_id = ?", userID).Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status)
 	if err != nil {
 		t.Fatalf("查询数据失败：%v", err)
@@ -160,7 +161,7 @@ func TestGetTasks(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,期望200,实际得到%d", w.Code)
 	}
-	var tasks []Task
+	var tasks []model.Task
 	err = json.Unmarshal(w.Body.Bytes(), &tasks)
 	if err != nil {
 		t.Fatalf("解析任务列表失败：%v", err)
@@ -191,7 +192,7 @@ func TestGetTasksEmpty(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,期望200,实际得到%d", w.Code)
 	}
-	var tasks = make([]Task, 0)
+	var tasks = make([]model.Task, 0)
 	err := json.Unmarshal(w.Body.Bytes(), &tasks)
 	if err != nil {
 		t.Fatalf("解析任务列表失败：%v", err)
@@ -233,7 +234,7 @@ func TestGetTasksUserIsolation(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,期望200,实际得到%d", w.Code)
 	}
-	var tasks = make([]Task, 0)
+	var tasks = make([]model.Task, 0)
 	err = json.Unmarshal(w.Body.Bytes(), &tasks)
 	if err != nil {
 		t.Fatalf("解析任务列表失败：%v", err)
@@ -266,7 +267,7 @@ func TestGetTask(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误，期望 200，实际得到 %d", w.Code)
 	}
-	var task Task
+	var task model.Task
 	err = json.Unmarshal(w.Body.Bytes(), &task)
 	if err != nil {
 		t.Fatalf("解析任务数据失败：%v", err)

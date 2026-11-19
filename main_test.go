@@ -6,6 +6,7 @@ import (
 	"net/http/httptest" //模拟 HTTP 请求和接收响应。
 	"strconv"
 	"strings"
+	"task-system/model"
 	"testing" //编写和执行自动化测试
 )
 
@@ -35,7 +36,7 @@ func TestCreateUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("解析响应失败:%v", err)
 	}
-	var user User
+	var user model.User
 	err = DB.QueryRow("SELECT id,name,age,gender FROM users WHERE id = ?", response.ID).Scan(&user.ID, &user.Name, &user.Age, &user.Gender)
 	if err != nil {
 		t.Fatalf("查询信息失败%v", err)
@@ -85,7 +86,7 @@ func TestGetUser(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,期望200,实际得到 %d", w.Code)
 	}
-	var user User
+	var user model.User
 	err := json.Unmarshal(w.Body.Bytes(), &user)
 	if err != nil {
 		t.Fatalf("解析响应失败:%v", err)
@@ -131,7 +132,7 @@ func TestUpdateUser(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,希望得到200,实际得到%v", w.Code)
 	}
-	var user User
+	var user model.User
 	err := DB.QueryRow("SELECT name,age,gender From users WHERE id=?", id).Scan(&user.Name, &user.Age, &user.Gender)
 	if err != nil {
 		t.Fatalf("查询数据失败 %v", err)
@@ -175,7 +176,7 @@ func TestUpdateUserInvalid(t *testing.T) {
 	if w.Code != 400 {
 		t.Fatalf("状态码错误,期望400,实际得到%d", w.Code)
 	}
-	var user User
+	var user model.User
 	err := DB.QueryRow("SELECT name, age, gender FROM users WHERE id = ?", id).Scan(&user.Name, &user.Age, &user.Gender)
 	if err != nil {
 		t.Fatalf("查询数据失败：%v", err)
@@ -199,7 +200,7 @@ func TestDeleteUser(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("状态码错误,期望200,实际得到%d", w.Code)
 	}
-	var user User
+	var user model.User
 	err := DB.QueryRow("SELECT id FROM users WHERE id = ?", id).Scan(&user.ID)
 	if err == nil {
 		t.Fatal("员工仍然存在，删除失败")
