@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"task-system/model"
 )
 
@@ -40,7 +41,16 @@ func scanUser(scanner interface{ Scan(...any) error }) (model.User, error) {
 }
 
 func (r *UserRepository) GetByID(id int) (model.User, error) {
-	return scanUser(r.db.QueryRow("SELECT id, name, age, gender FROM users WHERE id = ?", id))
+	user, err := scanUser(r.db.QueryRow(
+		"SELECT id, name, age, gender FROM users WHERE id = ?", id,
+	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, err
+	}
+	return user, nil
 }
 
 func (r *UserRepository) GetAll() ([]model.User, error) {
@@ -93,7 +103,7 @@ func (r *UserRepository) DeleteWithTasks(id int) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return sql.ErrNoRows
+		return ErrUserNotFound
 	}
 
 	return tx.Commit()

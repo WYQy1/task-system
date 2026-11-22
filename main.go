@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -6,7 +5,6 @@ import (
 	"task-system/handler"
 	"task-system/repository"
 	"task-system/service"
-	
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,7 +17,7 @@ func SetupRouter() *gin.Engine {
 	userHandler := handler.NewUserHandler(userService)
 
 	taskRepo := repository.NewTaskRepository(DB)
-	taskService := service.NewTaskService(taskRepo)
+	taskService := service.NewTaskService(userRepo, taskRepo)
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	r.GET("/ping", handler.Ping)

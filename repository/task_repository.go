@@ -9,8 +9,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-var ErrUserNotFound = errors.New("员工不存在")
-
 type TaskRepository struct {
 	db *sql.DB
 }
@@ -34,7 +32,13 @@ func (r *TaskRepository) Create(task model.Task) (int64, error) {
 func (r *TaskRepository) GetByID(id int) (model.Task, error) {
 	var task model.Task
 	err := r.db.QueryRow("SELECT id, user_id, title, description, status, created_at FROM tasks WHERE id = ?", id).Scan(&task.ID, &task.UserID, &task.Title, &task.Description, &task.Status, &task.CreatedAt)
-	return task, err
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Task{}, ErrTaskNotFound
+	}
+	if err != nil {
+		return model.Task{}, err
+	}
+	return task, nil
 }
 
 func (r *TaskRepository) GetByUserID(userID int) ([]model.Task, error) {
