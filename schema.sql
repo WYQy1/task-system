@@ -12,7 +12,10 @@ CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL,
     age INT,
-    gender VARCHAR(10)
+    gender VARCHAR(10),
+    password VARCHAR(255) NOT NULL,
+    token_version INT NOT NULL DEFAULT 0
+
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -34,7 +37,10 @@ CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL,
     age INT,
-    gender VARCHAR(10)
+    gender VARCHAR(10),
+    password VARCHAR(255) NOT NULL,
+    token_version INT NOT NULL DEFAULT 0
+
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -56,7 +62,10 @@ CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(20) NOT NULL,
     age INT,
-    gender VARCHAR(10)
+    gender VARCHAR(10),
+    password VARCHAR(255) NOT NULL,
+    token_version INT NOT NULL DEFAULT 0
+
 );
 
 CREATE TABLE IF NOT EXISTS tasks (

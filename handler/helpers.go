@@ -20,6 +20,10 @@ func parseID(c *gin.Context, wrongMsg string) (int, bool) {
 
 func respondError(c *gin.Context, err error, notFoundMsg, fallback string) {
 	switch {
+	case errors.Is(err, service.ErrInvalidPassword):
+		c.JSON(http.StatusBadRequest, gin.H{"message": "密码不能少于6位"})
+	case errors.Is(err, service.ErrWrongPassword):
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "用户名或密码错误"})
 	case errors.Is(err, service.ErrInvalidUserID):
 		c.JSON(http.StatusBadRequest, gin.H{"message": "员工ID不合法"})
 	case errors.Is(err, service.ErrInvalidUserName):

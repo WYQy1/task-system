@@ -13,4 +13,6 @@ var (
 	ErrInvalidUserGender = errors.New("性别不符合要求")
 	ErrInvalidUserID     = errors.New("员工ID不合法")
 	ErrInvalidTaskID     = errors.New("任务ID不合法")
+	ErrInvalidPassword   = errors.New("密码不合法")
+	ErrWrongPassword     = errors.New("密码错误")
 )

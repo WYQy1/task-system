@@ -13,9 +13,34 @@ type UserRepository struct {
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
+func (r *UserRepository) GetTokenVersion(userID int) (int, error) {
+	var version int
+	err := r.db.QueryRow("SELECT token_version FROM users WHERE id=?", userID).Scan(&version)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, ErrUserNotFound
+	}
+	if err != nil {
+		return 0, err
+	}
+	return version, nil
+}
+func (r *UserRepository) IncrementTokenVersion(userID int) (int64, error) {
+	result, err := r.db.Exec("UPDATE users SET token_version = token_version + 1 WHERE id = ?", userID)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if rowsAffected == 0 {
+		return 0, ErrUserNotFound
+	}
+	return rowsAffected, nil
+}
 
 func (r *UserRepository) Create(user model.User) (int64, error) {
-	result, err := r.db.Exec("INSERT INTO users (name, age, gender) VALUES (?, ?, ?)", user.Name, user.Age, user.Gender)
+	result, err := r.db.Exec("INSERT INTO users (name, age, gender,password) VALUES (?, ?, ?,?)", user.Name, user.Age, user.Gender, user.Password)
 	if err != nil {
 		return 0, err
 	}
@@ -41,9 +66,7 @@ func scanUser(scanner interface{ Scan(...any) error }) (model.User, error) {
 }
 
 func (r *UserRepository) GetByID(id int) (model.User, error) {
-	user, err := scanUser(r.db.QueryRow(
-		"SELECT id, name, age, gender FROM users WHERE id = ?", id,
-	))
+	user, err := scanUser(r.db.QueryRow("SELECT id, name, age, gender FROM users WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -52,7 +75,25 @@ func (r *UserRepository) GetByID(id int) (model.User, error) {
 	}
 	return user, nil
 }
-
+func (r *UserRepository) GetByName(name string) (model.User, error) {
+	var user model.User
+	var age sql.NullInt64
+	var gender sql.NullString
+	err := r.db.QueryRow("SELECT id, name, age, gender,password FROM users WHERE name = ?", name).Scan(&user.ID, &user.Name, &age, &gender, &user.Password)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return model.User{}, err
+	}
+	if age.Valid {
+		user.Age = int(age.Int64)
+	}
+	if gender.Valid {
+		user.Gender = gender.String
+	}
+	return user, nil
+}
 func (r *UserRepository) GetAll() ([]model.User, error) {
 	rows, err := r.db.Query("SELECT id, name, age, gender FROM users ORDER BY id ASC")
 	if err != nil {

@@ -69,8 +69,8 @@ func (s *UserService) Create(user model.User) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	user.Gender = gender           
-	return s.userRepo.Create(user) 
+	user.Gender = gender
+	return s.userRepo.Create(user)
 }
 
 func (s *UserService) GetByID(id int) (model.User, error) {

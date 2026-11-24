@@ -1,9 +1,10 @@
 package service
 
 import (
-	"errors"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidateUserID(t *testing.T) {
@@ -18,9 +19,8 @@ func TestValidateUserID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateUserID(tt.id); !errors.Is(err, tt.wantErr) {
-				t.Fatalf("期望错误 %v，实际得到 %v", tt.wantErr, err)
-			}
+			err := validateUserID(tt.id)
+			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
 }
@@ -40,12 +40,8 @@ func TestNormalizeAndValidateUserName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := normalizeAndValidateUserName(tt.input)
-			if got != tt.wantName {
-				t.Errorf("期望姓名 %q，实际得到 %q", tt.wantName, got)
-			}
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("期望错误 %v，实际得到 %v", tt.wantErr, err)
-			}
+			assert.Equal(t, tt.wantName, got, "期望姓名 %q，实际得到 %q", tt.wantName, got)
+			assert.ErrorIs(t, err, tt.wantErr, "期望错误 %v，实际得到 %v", tt.wantErr, err)
 		})
 	}
 }
@@ -65,9 +61,8 @@ func TestValidateUserAge(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateUserAge(tt.age); !errors.Is(err, tt.wantErr) {
-				t.Errorf("期望错误 %v，实际得到 %v", tt.wantErr, err)
-			}
+			err := validateUserAge(tt.age)
+			assert.ErrorIs(t, err, tt.wantErr, "期望错误 %v，实际得到 %v", tt.wantErr, err)
 		})
 	}
 }
@@ -92,12 +87,8 @@ func TestNormalizeAndValidateUserGender(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := normalizeAndValidateUserGender(tt.gender)
-			if got != tt.wantGender {
-				t.Errorf("期望性别 %q，实际得到 %q", tt.wantGender, got)
-			}
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("期望错误 %v，实际得到 %v", tt.wantErr, err)
-			}
+			assert.Equal(t, tt.wantGender, got, "期望性别 %q，实际得到 %q", tt.wantGender, got)
+			assert.ErrorIs(t, err, tt.wantErr, "期望错误 %v，实际得到 %v", tt.wantErr, err)
 		})
 	}
 }
@@ -115,9 +106,8 @@ func TestValidateTaskID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := validateTaskID(tt.id); !errors.Is(err, tt.wantErr) {
-				t.Errorf("validateTaskID(%d) 应返回 %v，实际返回 %v", tt.id, tt.wantErr, err)
-			}
+			err := validateTaskID(tt.id)
+			assert.ErrorIs(t, err, tt.wantErr, "validateTaskID(%d) 应返回 %v，实际返回 %v", tt.id, tt.wantErr, err)
 		})
 	}
 }
@@ -138,12 +128,8 @@ func TestNormalizeAndValidateTaskTitle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := normalizeAndValidateTaskTitle(tt.input)
-			if got != tt.want {
-				t.Errorf("normalizeAndValidateTaskTitle(%q) 标题：期望 %q，实际 %q", tt.input, tt.want, got)
-			}
-			if !errors.Is(err, tt.wantErr) {
-				t.Errorf("normalizeAndValidateTaskTitle(%q) 错误：期望 %v，实际 %v", tt.input, tt.wantErr, err)
-			}
+			assert.Equal(t, tt.want, got, "normalizeAndValidateTaskTitle(%q) 标题：期望 %q，实际 %q", tt.input, tt.want, got)
+			assert.ErrorIs(t, err, tt.wantErr, "normalizeAndValidateTaskTitle(%q) 错误：期望 %v，实际 %v", tt.input, tt.wantErr, err)
 		})
 	}
 }
@@ -162,9 +148,8 @@ func TestIsValidTaskStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isValidTaskStatus(tt.status); got != tt.want {
-				t.Errorf("isValidTaskStatus(%q) 期望 %v，实际 %v", tt.status, tt.want, got)
-			}
+			got := isValidTaskStatus(tt.status)
+			assert.Equal(t, tt.want, got, "isValidTaskStatus(%q) 期望 %v，实际 %v", tt.status, tt.want, got)
 		})
 	}
 }

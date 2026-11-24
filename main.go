@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"task-system/handler"
+	"task-system/middleware"
 	"task-system/repository"
 	"task-system/service"
 
@@ -16,24 +17,34 @@ func SetupRouter() *gin.Engine {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 
+	authService := service.NewAuthService(userRepo)
+	authHandler := handler.NewAuthHandler(authService)
+
 	taskRepo := repository.NewTaskRepository(DB)
 	taskService := service.NewTaskService(userRepo, taskRepo)
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	r.GET("/ping", handler.Ping)
 	r.GET("/hello", handler.GetHello)
+	r.POST("/auth/register", authHandler.Register)
+	r.POST("/auth/login", authHandler.Login)
 
-	r.POST("/users", userHandler.CreateUser)
-	r.GET("/users", userHandler.GetUsers)
-	r.GET("/users/:id", userHandler.GetUser)
-	r.PUT("/users/:id", userHandler.UpdateUser)
-	r.DELETE("/users/:id", userHandler.DeleteUser)
+	auth := r.Group("", middleware.AuthMiddleware(userRepo))
+	{
+		auth.POST("/auth/logout", authHandler.Logout)
 
-	r.POST("/users/:id/tasks", taskHandler.CreateTask)
-	r.GET("/users/:id/tasks", taskHandler.GetTasks)
-	r.GET("/users/tasks/:id", taskHandler.GetTask)
-	r.PUT("/tasks/:id", taskHandler.UpdateTask)
-	r.DELETE("/tasks/:id", taskHandler.DeleteTask)
+		auth.POST("/users", userHandler.CreateUser)
+		auth.GET("/users", userHandler.GetUsers)
+		auth.GET("/users/:id", userHandler.GetUser)
+		auth.PUT("/users/:id", userHandler.UpdateUser)
+		auth.DELETE("/users/:id", userHandler.DeleteUser)
+
+		auth.POST("/users/:id/tasks", taskHandler.CreateTask)
+		auth.GET("/users/:id/tasks", taskHandler.GetTasks)
+		auth.GET("/users/tasks/:id", taskHandler.GetTask)
+		auth.PUT("/tasks/:id", taskHandler.UpdateTask)
+		auth.DELETE("/tasks/:id", taskHandler.DeleteTask)
+	}
 
 	return r
 }
