@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -29,6 +30,11 @@ func initDBFromEnv(envKey string) error {
 	if err != nil {
 		return fmt.Errorf("创建数据库连接失败: %w", err)
 	}
+
+	// 连接池参数：最大打开 25、最大空闲 10、单条连接最长存活 5 分钟
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// 检查数据库连接是否正常
 	if err := db.Ping(); err != nil {
