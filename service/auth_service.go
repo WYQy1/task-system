@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"golang.org/x/crypto/bcrypt"
 	"task-system/model"
@@ -22,7 +23,7 @@ func validatePassword(password string) error {
 	return nil
 }
 
-func (a *AuthService) Register(name, password string, age int, gender string) (int64, error) {
+func (a *AuthService) Register(ctx context.Context, name, password string, age int, gender string) (int64, error) {
 	name, err := normalizeAndValidateUserName(name)
 	if err != nil {
 		return 0, err
@@ -42,15 +43,15 @@ func (a *AuthService) Register(name, password string, age int, gender string) (i
 		return 0, err
 	}
 	user := model.User{Name: name, Age: age, Gender: gender, Password: string(hash)}
-	return a.userRepo.Create(user)
+	return a.userRepo.Create(ctx, user)
 }
 
-func (a *AuthService) Login(name, password string) (model.User, error) {
+func (a *AuthService) Login(ctx context.Context, name, password string) (model.User, error) {
 	name, err := normalizeAndValidateUserName(name)
 	if err != nil {
 		return model.User{}, err // 名字不合法 → 原样返回（respondError 会映射成 400）
 	}
-	user, err := a.userRepo.GetByName(name)
+	user, err := a.userRepo.GetByName(ctx, name)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return model.User{}, ErrWrongPassword // 用户不存在 → 伪装成"密码错误"
 	}
@@ -63,11 +64,11 @@ func (a *AuthService) Login(name, password string) (model.User, error) {
 	return user, nil
 }
 
-func (a *AuthService) GetTokenVersion(userID int) (int, error) {
-	return a.userRepo.GetTokenVersion(userID)
+func (a *AuthService) GetTokenVersion(ctx context.Context, userID int) (int, error) {
+	return a.userRepo.GetTokenVersion(ctx, userID)
 }
 
-func (a *AuthService) Logout(userID int) error {
-	_, err := a.userRepo.IncrementTokenVersion(userID)
+func (a *AuthService) Logout(ctx context.Context, userID int) error {
+	_, err := a.userRepo.IncrementTokenVersion(ctx, userID)
 	return err
 }

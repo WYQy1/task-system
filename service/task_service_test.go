@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -13,7 +14,7 @@ func TestTaskServiceCreate(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "  Go任务测试  ", Description: "测试任务描述"})
-	task, err := taskService.GetByID(taskID)
+	task, err := taskService.GetByID(context.Background(), taskID)
 	require.NoError(t, err)
 	checkTask(t, task, taskID, userID, "Go任务测试", "测试任务描述", "pending")
 }
@@ -33,7 +34,7 @@ func TestTaskServiceCreateInvalidInput(t *testing.T) {
 	taskService := NewTaskService(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := taskService.Create(tt.task)
+			_, err := taskService.Create(context.Background(), tt.task)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -43,7 +44,7 @@ func TestTaskServiceCreateUserNotFound(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	deleteUserForTest(t, db, userID)
-	_, err := taskService.Create(model.Task{UserID: userID, Title: "Go任务测试", Description: "测试任务描述"})
+	_, err := taskService.Create(context.Background(), model.Task{UserID: userID, Title: "Go任务测试", Description: "测试任务描述"})
 	require.ErrorIs(t, err, ErrUserNotFound)
 }
 
@@ -51,7 +52,7 @@ func TestTaskServiceGetByID(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "  Go任务测试  ", Description: "测试任务描述"})
-	task, err := taskService.GetByID(taskID)
+	task, err := taskService.GetByID(context.Background(), taskID)
 	require.NoError(t, err)
 	checkTask(t, task, taskID, userID, "Go任务测试", "测试任务描述", "pending")
 }
@@ -68,7 +69,7 @@ func TestTaskServiceGetByIDInvalidID(t *testing.T) {
 	taskService := NewTaskService(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := taskService.GetByID(tt.id)
+			_, err := taskService.GetByID(context.Background(), tt.id)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -79,7 +80,7 @@ func TestTaskServiceGetByIDNotFound(t *testing.T) {
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "测试任务", Description: "测试任务描述"})
 	deleteTaskForTest(t, db, taskID)
-	_, err := taskService.GetByID(taskID)
+	_, err := taskService.GetByID(context.Background(), taskID)
 	require.ErrorIs(t, err, ErrTaskNotFound)
 }
 
@@ -90,7 +91,7 @@ func TestTaskServiceGetByUserID(t *testing.T) {
 	for _, title := range titles {
 		createTestTask(t, taskService, model.Task{UserID: userID, Title: title})
 	}
-	tasks, err := taskService.GetByUserID(userID)
+	tasks, err := taskService.GetByUserID(context.Background(), userID)
 	require.NoError(t, err)
 	assert.Len(t, tasks, len(titles))
 	for i, wantTitle := range titles {
@@ -111,7 +112,7 @@ func TestTaskServiceGetByUserIDInvalidID(t *testing.T) {
 	taskService := NewTaskService(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := taskService.GetByUserID(tt.userID)
+			_, err := taskService.GetByUserID(context.Background(), tt.userID)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -121,10 +122,10 @@ func TestTaskServiceUpdate(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "原始标题", Description: "原始描述"})
-	rows, err := taskService.Update(model.Task{ID: taskID, UserID: userID, Title: " 修改后的标题 ", Description: "修改后的描述", Status: "completed"})
+	rows, err := taskService.Update(context.Background(), model.Task{ID: taskID, UserID: userID, Title: " 修改后的标题 ", Description: "修改后的描述", Status: "completed"})
 	require.NoError(t, err)
 	require.Positive(t, rows)
-	task, err := taskService.GetByID(taskID)
+	task, err := taskService.GetByID(context.Background(), taskID)
 	require.NoError(t, err)
 	checkTask(t, task, taskID, userID, "修改后的标题", "修改后的描述", "completed")
 }
@@ -133,9 +134,9 @@ func TestTaskServiceUpdateNoChanges(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "测试任务", Description: "测试任务描述"})
-	_, err := taskService.Update(model.Task{ID: taskID, Title: "测试任务", Description: "测试任务描述", Status: "pending"})
+	_, err := taskService.Update(context.Background(), model.Task{ID: taskID, Title: "测试任务", Description: "测试任务描述", Status: "pending"})
 	require.NoError(t, err)
-	task, err := taskService.GetByID(taskID)
+	task, err := taskService.GetByID(context.Background(), taskID)
 	require.NoError(t, err)
 	checkTask(t, task, taskID, userID, "测试任务", "测试任务描述", "pending")
 }
@@ -156,7 +157,7 @@ func TestTaskServiceUpdateInvalidInput(t *testing.T) {
 	taskService := NewTaskService(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := taskService.Update(tt.task)
+			_, err := taskService.Update(context.Background(), tt.task)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -167,7 +168,7 @@ func TestTaskServiceUpdateNotFound(t *testing.T) {
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "测试任务", Description: "测试任务描述"})
 	deleteTaskForTest(t, db, taskID)
-	_, err := taskService.Update(model.Task{ID: taskID, Title: "修改后的标题", Description: "修改后的描述", Status: "completed"})
+	_, err := taskService.Update(context.Background(), model.Task{ID: taskID, Title: "修改后的标题", Description: "修改后的描述", Status: "completed"})
 	require.ErrorIs(t, err, ErrTaskNotFound)
 }
 
@@ -175,10 +176,10 @@ func TestTaskServiceDelete(t *testing.T) {
 	db, taskService := newTestTaskService(t)
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "测试任务", Description: "测试任务描述"})
-	rowsAffected, err := taskService.Delete(taskID)
+	rowsAffected, err := taskService.Delete(context.Background(), taskID)
 	require.NoError(t, err)
 	require.Positive(t, rowsAffected)
-	_, err = taskService.GetByID(taskID)
+	_, err = taskService.GetByID(context.Background(), taskID)
 	require.ErrorIs(t, err, ErrTaskNotFound)
 }
 
@@ -194,7 +195,7 @@ func TestTaskServiceDeleteInvalidID(t *testing.T) {
 	taskService := NewTaskService(nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := taskService.Delete(tt.id)
+			_, err := taskService.Delete(context.Background(), tt.id)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -205,6 +206,6 @@ func TestTaskServiceDeleteNotFound(t *testing.T) {
 	userID := createTestUser(t, db)
 	taskID := createTestTask(t, taskService, model.Task{UserID: userID, Title: "测试任务", Description: "测试任务描述"})
 	deleteTaskForTest(t, db, taskID)
-	_, err := taskService.Delete(taskID)
+	_, err := taskService.Delete(context.Background(), taskID)
 	require.ErrorIs(t, err, ErrTaskNotFound)
 }

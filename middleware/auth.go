@@ -68,7 +68,7 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc { //中
 			return
 		}
 		// 5. 查库里当前的版本号（顺带校验用户是否还存在）
-		currentVer, err := userRepo.GetTokenVersion(int(userID))
+		currentVer, err := userRepo.GetTokenVersion(c.Request.Context(), int(userID))
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "token 无效"})
 			c.Abort()

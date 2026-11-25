@@ -45,7 +45,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 	user := model.User{Name: request.Name, Age: request.Age, Gender: request.Gender}
-	id, err := h.userService.Create(user)
+	id, err := h.userService.Create(c.Request.Context(), user)
 	if err != nil {
 		respondError(c, err, "", "员工添加失败")
 		return
@@ -58,7 +58,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	user, err := h.userService.GetByID(id)
+	user, err := h.userService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err, "员工不存在", "查询员工失败")
 		return
@@ -67,7 +67,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUsers(c *gin.Context) {
-	users, err := h.userService.GetAll()
+	users, err := h.userService.GetAll(c.Request.Context())
 	if err != nil {
 		respondError(c, err, "", "查询员工失败")
 		return
@@ -86,7 +86,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 	user := model.User{ID: id, Name: request.Name, Age: request.Age, Gender: request.Gender}
-	_, err := h.userService.Update(user)
+	_, err := h.userService.Update(c.Request.Context(), user)
 	if err != nil {
 		respondError(c, err, "员工id不存在", "员工信息更新失败")
 		return
@@ -99,7 +99,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	err := h.userService.Delete(id)
+	err := h.userService.Delete(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err, "删除的员工不存在", "删除员工失败")
 		return

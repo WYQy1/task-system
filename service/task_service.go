@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"task-system/model"
@@ -28,7 +29,7 @@ func normalizeAndValidateTaskTitle(title string) (string, error) {
 	}
 	return title, nil
 }
-func (s *TaskService) Create(task model.Task) (int64, error) {
+func (s *TaskService) Create(ctx context.Context, task model.Task) (int64, error) {
 	err := validateUserID(task.UserID)
 	if err != nil {
 		return 0, err
@@ -38,19 +39,19 @@ func (s *TaskService) Create(task model.Task) (int64, error) {
 		return 0, err
 	}
 	task.Title = title
-	id, err := s.taskRepo.Create(task)
+	id, err := s.taskRepo.Create(ctx, task)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return 0, ErrUserNotFound
 	}
 	return id, err
 }
 
-func (s *TaskService) GetByID(id int) (model.Task, error) {
+func (s *TaskService) GetByID(ctx context.Context, id int) (model.Task, error) {
 	err := validateTaskID(id)
 	if err != nil {
 		return model.Task{}, err
 	}
-	task, err := s.taskRepo.GetByID(id)
+	task, err := s.taskRepo.GetByID(ctx, id)
 	if errors.Is(err, repository.ErrTaskNotFound) {
 		return model.Task{}, ErrTaskNotFound
 	}
@@ -60,17 +61,17 @@ func (s *TaskService) GetByID(id int) (model.Task, error) {
 	return task, nil
 }
 
-func (s *TaskService) GetByUserID(userID int) ([]model.Task, error) {
+func (s *TaskService) GetByUserID(ctx context.Context, userID int) ([]model.Task, error) {
 	if err := validateUserID(userID); err != nil {
 		return nil, err
 	}
-	if _, err := s.userRepo.GetByID(userID); err != nil {
+	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}
-	return s.taskRepo.GetByUserID(userID)
+	return s.taskRepo.GetByUserID(ctx, userID)
 }
 
 func isValidTaskStatus(status string) bool {
@@ -82,7 +83,7 @@ func isValidTaskStatus(status string) bool {
 	}
 }
 
-func (s *TaskService) Update(task model.Task) (int64, error) {
+func (s *TaskService) Update(ctx context.Context, task model.Task) (int64, error) {
 	err := validateTaskID(task.ID)
 	if err != nil {
 		return 0, err
@@ -96,12 +97,12 @@ func (s *TaskService) Update(task model.Task) (int64, error) {
 		return 0, ErrInvalidTaskStatus
 	}
 
-	rowsAffected, err := s.taskRepo.Update(task)
+	rowsAffected, err := s.taskRepo.Update(ctx, task)
 	if err != nil {
 		return 0, err
 	}
 	if rowsAffected == 0 {
-		_, err := s.GetByID(task.ID)
+		_, err := s.GetByID(ctx, task.ID)
 		if err != nil {
 			return 0, err
 		}
@@ -109,12 +110,12 @@ func (s *TaskService) Update(task model.Task) (int64, error) {
 	return rowsAffected, nil
 }
 
-func (s *TaskService) Delete(id int) (int64, error) {
+func (s *TaskService) Delete(ctx context.Context, id int) (int64, error) {
 	err := validateTaskID(id)
 	if err != nil {
 		return 0, err
 	}
-	rowsAffected, err := s.taskRepo.Delete(id)
+	rowsAffected, err := s.taskRepo.Delete(ctx, id)
 	if err != nil {
 		return 0, err
 	}

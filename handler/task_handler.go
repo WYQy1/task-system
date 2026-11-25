@@ -38,7 +38,7 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 		return
 	}
 	task := model.Task{UserID: userID, Title: request.Title, Description: request.Description}
-	id, err := h.taskService.Create(task)
+	id, err := h.taskService.Create(c.Request.Context(), task)
 	if err != nil {
 		respondError(c, err, "员工不存在", "创建任务失败")
 		return
@@ -51,7 +51,7 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 	if !ok {
 		return
 	}
-	tasks, err := h.taskService.GetByUserID(userID)
+	tasks, err := h.taskService.GetByUserID(c.Request.Context(), userID)
 	if err != nil {
 		respondError(c, err, "员工不存在", "查询任务列表失败")
 		return
@@ -64,7 +64,7 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 	if !ok {
 		return
 	}
-	task, err := h.taskService.GetByID(id)
+	task, err := h.taskService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err, "员工不存在", "查询任务失败")
 		return
@@ -83,7 +83,7 @@ func (h *TaskHandler) UpdateTask(c *gin.Context) {
 		return
 	}
 	task := model.Task{ID: id, Title: request.Title, Description: request.Description, Status: request.Status}
-	_, err := h.taskService.Update(task)
+	_, err := h.taskService.Update(c.Request.Context(), task)
 	if err != nil {
 		respondError(c, err, "员工不存在", "更新任务失败")
 		return
@@ -96,7 +96,7 @@ func (h *TaskHandler) DeleteTask(c *gin.Context) {
 	if !ok {
 		return
 	}
-	_, err := h.taskService.Delete(id)
+	_, err := h.taskService.Delete(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err, "员工不存在", "删除任务失败")
 		return

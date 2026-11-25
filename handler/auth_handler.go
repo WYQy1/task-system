@@ -33,7 +33,7 @@ func (a *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "注册信息失败"})
 		return
 	}
-	id, err := a.authService.Register(request.Name, request.Password, request.Age, request.Gender)
+	id, err := a.authService.Register(c.Request.Context(), request.Name, request.Password, request.Age, request.Gender)
 	if err != nil {
 		respondError(c, err, "", "注册信息失败")
 		return
@@ -46,12 +46,12 @@ func (a *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "登录信息失败"})
 		return
 	}
-	user, err := a.authService.Login(request.Name, request.Password)
+	user, err := a.authService.Login(c.Request.Context(), request.Name, request.Password)
 	if err != nil {
 		respondError(c, err, "", "登录信息失败")
 		return
 	}
-	ver, err := a.authService.GetTokenVersion(user.ID)
+	ver, err := a.authService.GetTokenVersion(c.Request.Context(), user.ID)
 	if err != nil {
 		respondError(c, err, "", "获取token版本失败")
 		return
@@ -76,7 +76,7 @@ func (a *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	if err := a.authService.Logout(int(userID)); err != nil {
+	if err := a.authService.Logout(c.Request.Context(), int(userID)); err != nil {
 		respondError(c, err, "", "退出登录失败")
 		return
 	}

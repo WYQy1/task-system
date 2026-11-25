@@ -2,6 +2,7 @@ package service
 
 //只负责业务逻辑的判断 其他具体的sql操作交给repo层处理
 import (
+	"context"
 	"errors"
 	"strings"
 	"task-system/model"
@@ -55,7 +56,7 @@ func normalizeAndValidateUserGender(gender string) (string, error) {
 
 }
 
-func (s *UserService) Create(user model.User) (int64, error) {
+func (s *UserService) Create(ctx context.Context, user model.User) (int64, error) {
 	name, err := normalizeAndValidateUserName(user.Name)
 	if err != nil {
 		return 0, err
@@ -70,15 +71,15 @@ func (s *UserService) Create(user model.User) (int64, error) {
 		return 0, err
 	}
 	user.Gender = gender
-	return s.userRepo.Create(user)
+	return s.userRepo.Create(ctx, user)
 }
 
-func (s *UserService) GetByID(id int) (model.User, error) {
+func (s *UserService) GetByID(ctx context.Context, id int) (model.User, error) {
 	err := validateUserID(id)
 	if err != nil {
 		return model.User{}, err
 	}
-	user, err := s.userRepo.GetByID(id)
+	user, err := s.userRepo.GetByID(ctx, id)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -88,11 +89,11 @@ func (s *UserService) GetByID(id int) (model.User, error) {
 	return user, nil
 }
 
-func (s *UserService) GetAll() ([]model.User, error) {
-	return s.userRepo.GetAll()
+func (s *UserService) GetAll(ctx context.Context) ([]model.User, error) {
+	return s.userRepo.GetAll(ctx)
 }
 
-func (s *UserService) Update(user model.User) (int64, error) {
+func (s *UserService) Update(ctx context.Context, user model.User) (int64, error) {
 	err := validateUserID(user.ID)
 	if err != nil {
 		return 0, err
@@ -111,12 +112,12 @@ func (s *UserService) Update(user model.User) (int64, error) {
 		return 0, err
 	}
 	user.Gender = gender
-	rowsAffected, err := s.userRepo.Update(user)
+	rowsAffected, err := s.userRepo.Update(ctx, user)
 	if err != nil {
 		return 0, err
 	}
 	if rowsAffected == 0 {
-		_, err := s.GetByID(user.ID)
+		_, err := s.GetByID(ctx, user.ID)
 		if err != nil {
 			return 0, err
 		}
@@ -124,12 +125,12 @@ func (s *UserService) Update(user model.User) (int64, error) {
 	return rowsAffected, nil
 }
 
-func (s *UserService) Delete(id int) error {
+func (s *UserService) Delete(ctx context.Context, id int) error {
 	err := validateUserID(id)
 	if err != nil {
 		return err
 	}
-	err = s.userRepo.DeleteWithTasks(id)
+	err = s.userRepo.DeleteWithTasks(ctx, id)
 	if errors.Is(err, repository.ErrUserNotFound) {
 		return ErrUserNotFound
 	}

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"task-system/model"
@@ -13,9 +14,11 @@ type UserRepository struct {
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
-func (r *UserRepository) GetTokenVersion(userID int) (int, error) {
+
+// **凡是 `XxxContext` 的方法，第一个实参永远是 ctx**。`QueryRowContext(ctx, sql)
+func (r *UserRepository) GetTokenVersion(ctx context.Context, userID int) (int, error) {
 	var version int
-	err := r.db.QueryRow("SELECT token_version FROM users WHERE id=?", userID).Scan(&version)
+	err := r.db.QueryRowContext(ctx, "SELECT token_version FROM users WHERE id=?", userID).Scan(&version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, ErrUserNotFound
 	}
@@ -24,8 +27,8 @@ func (r *UserRepository) GetTokenVersion(userID int) (int, error) {
 	}
 	return version, nil
 }
-func (r *UserRepository) IncrementTokenVersion(userID int) (int64, error) {
-	result, err := r.db.Exec("UPDATE users SET token_version = token_version + 1 WHERE id = ?", userID)
+func (r *UserRepository) IncrementTokenVersion(ctx context.Context, userID int) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "UPDATE users SET token_version = token_version + 1 WHERE id = ?", userID)
 	if err != nil {
 		return 0, err
 	}
@@ -39,8 +42,8 @@ func (r *UserRepository) IncrementTokenVersion(userID int) (int64, error) {
 	return rowsAffected, nil
 }
 
-func (r *UserRepository) Create(user model.User) (int64, error) {
-	result, err := r.db.Exec("INSERT INTO users (name, age, gender,password) VALUES (?, ?, ?,?)", user.Name, user.Age, user.Gender, user.Password)
+func (r *UserRepository) Create(ctx context.Context, user model.User) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "INSERT INTO users (name, age, gender,password) VALUES (?, ?, ?,?)", user.Name, user.Age, user.Gender, user.Password)
 	if err != nil {
 		return 0, err
 	}
@@ -65,8 +68,8 @@ func scanUser(scanner interface{ Scan(...any) error }) (model.User, error) {
 	return user, nil
 }
 
-func (r *UserRepository) GetByID(id int) (model.User, error) {
-	user, err := scanUser(r.db.QueryRow("SELECT id, name, age, gender FROM users WHERE id = ?", id))
+func (r *UserRepository) GetByID(ctx context.Context, id int) (model.User, error) {
+	user, err := scanUser(r.db.QueryRowContext(ctx, "SELECT id, name, age, gender FROM users WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -75,11 +78,11 @@ func (r *UserRepository) GetByID(id int) (model.User, error) {
 	}
 	return user, nil
 }
-func (r *UserRepository) GetByName(name string) (model.User, error) {
+func (r *UserRepository) GetByName(ctx context.Context, name string) (model.User, error) {
 	var user model.User
 	var age sql.NullInt64
 	var gender sql.NullString
-	err := r.db.QueryRow("SELECT id, name, age, gender,password FROM users WHERE name = ?", name).Scan(&user.ID, &user.Name, &age, &gender, &user.Password)
+	err := r.db.QueryRowContext(ctx, "SELECT id, name, age, gender,password FROM users WHERE name = ?", name).Scan(&user.ID, &user.Name, &age, &gender, &user.Password)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -94,8 +97,8 @@ func (r *UserRepository) GetByName(name string) (model.User, error) {
 	}
 	return user, nil
 }
-func (r *UserRepository) GetAll() ([]model.User, error) {
-	rows, err := r.db.Query("SELECT id, name, age, gender FROM users ORDER BY id ASC")
+func (r *UserRepository) GetAll(ctx context.Context) ([]model.User, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, age, gender FROM users ORDER BY id ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -115,26 +118,26 @@ func (r *UserRepository) GetAll() ([]model.User, error) {
 	return users, nil
 }
 
-func (r *UserRepository) Update(user model.User) (int64, error) {
-	result, err := r.db.Exec("UPDATE users SET name = ?, age = ?, gender = ? WHERE id = ?", user.Name, user.Age, user.Gender, user.ID)
+func (r *UserRepository) Update(ctx context.Context, user model.User) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "UPDATE users SET name = ?, age = ?, gender = ? WHERE id = ?", user.Name, user.Age, user.Gender, user.ID)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected()
 }
 
-func (r *UserRepository) DeleteWithTasks(id int) error {
-	tx, err := r.db.Begin()
+func (r *UserRepository) DeleteWithTasks(ctx context.Context, id int) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec("DELETE FROM tasks WHERE user_id = ?", id); err != nil {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM tasks WHERE user_id = ?", id); err != nil {
 		return err
 	}
 
-	result, err := tx.Exec("DELETE FROM users WHERE id = ?", id)
+	result, err := tx.ExecContext(ctx, "DELETE FROM users WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

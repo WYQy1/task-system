@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 
 func TestUserServiceCreate(t *testing.T) {
 	db, userService := newTestUserService(t)
-	id, err := userService.Create(model.User{Name: "  Alice  ", Age: 23, Gender: " 男 "})
+	id, err := userService.Create(context.Background(), model.User{Name: "  Alice  ", Age: 23, Gender: " 男 "})
 	require.NoError(t, err)
 	cleanupTestUser(t, db, id)
 	checkUser(t, getUserFromDB(t, db, id), int(id), "Alice", 23, "male")
@@ -32,7 +33,7 @@ func TestUserServiceCreateInvalidInput(t *testing.T) {
 	svc := NewUserService(nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Create(tt.user)
+			_, err := svc.Create(context.Background(), tt.user)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -41,7 +42,7 @@ func TestUserServiceCreateInvalidInput(t *testing.T) {
 func TestUserServiceGetByID(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
-	user, err := userService.GetByID(id)
+	user, err := userService.GetByID(context.Background(), id)
 	require.NoError(t, err)
 	checkUser(t, user, id, "TestUser", 25, "male")
 }
@@ -57,7 +58,7 @@ func TestUserServiceGetByIDInvalidID(t *testing.T) {
 	svc := NewUserService(nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.GetByID(tt.id)
+			_, err := svc.GetByID(context.Background(), tt.id)
 			assert.ErrorIs(t, err, ErrInvalidUserID)
 		})
 	}
@@ -67,14 +68,14 @@ func TestUserServiceGetByIDNotFound(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
 	deleteUserForTest(t, db, id)
-	_, err := userService.GetByID(id)
+	_, err := userService.GetByID(context.Background(), id)
 	require.ErrorIs(t, err, ErrUserNotFound)
 }
 
 func TestUserServiceUpdate(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
-	rowsAffected, err := userService.Update(model.User{ID: id, Name: " Bob ", Age: 24, Gender: "女"})
+	rowsAffected, err := userService.Update(context.Background(), model.User{ID: id, Name: " Bob ", Age: 24, Gender: "女"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rowsAffected)
 	checkUser(t, getUserFromDB(t, db, int64(id)), id, "Bob", 24, "female")
@@ -83,7 +84,7 @@ func TestUserServiceUpdate(t *testing.T) {
 func TestUserServiceUpdateNoChanges(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
-	rowsAffected, err := userService.Update(model.User{ID: id, Name: "TestUser", Age: 25, Gender: "male"})
+	rowsAffected, err := userService.Update(context.Background(), model.User{ID: id, Name: "TestUser", Age: 25, Gender: "male"})
 	require.NoError(t, err)
 	assert.True(t, rowsAffected == 0 || rowsAffected == 1, "影响行数异常: %d", rowsAffected)
 	checkUser(t, getUserFromDB(t, db, int64(id)), id, "TestUser", 25, "male")
@@ -108,7 +109,7 @@ func TestUserServiceUpdateInvalidInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			user := base
 			tt.mutate(&user)
-			_, err := svc.Update(user)
+			_, err := svc.Update(context.Background(), user)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
@@ -118,14 +119,14 @@ func TestUserServiceUpdateNotFound(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
 	deleteUserForTest(t, db, id)
-	_, err := userService.Update(model.User{ID: id, Name: "Alice", Age: 23, Gender: "male"})
+	_, err := userService.Update(context.Background(), model.User{ID: id, Name: "Alice", Age: 23, Gender: "male"})
 	require.ErrorIs(t, err, ErrUserNotFound)
 }
 
 func TestUserServiceDelete(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
-	require.NoError(t, userService.Delete(id))
+	require.NoError(t, userService.Delete(context.Background(), id))
 	var count int
 	require.NoError(t, db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", id).Scan(&count))
 	assert.Zero(t, count, "期望用户已删除")
@@ -142,7 +143,7 @@ func TestUserServiceDeleteInvalidID(t *testing.T) {
 	svc := NewUserService(nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := svc.Delete(tt.id)
+			err := svc.Delete(context.Background(), tt.id)
 			assert.ErrorIs(t, err, ErrInvalidUserID)
 		})
 	}
@@ -152,6 +153,6 @@ func TestUserServiceDeleteNotFound(t *testing.T) {
 	db, userService := newTestUserService(t)
 	id := createTestUser(t, db)
 	deleteUserForTest(t, db, id)
-	err := userService.Delete(id)
+	err := userService.Delete(context.Background(), id)
 	require.ErrorIs(t, err, ErrUserNotFound)
 }

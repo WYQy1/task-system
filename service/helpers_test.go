@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -77,7 +78,7 @@ func createTestUser(t *testing.T, db *sql.DB) int {
 // createTestTask 通过 TaskService 创建测试任务并返回 ID。
 func createTestTask(t *testing.T, taskService *TaskService, task model.Task) int {
 	t.Helper()
-	taskID, err := taskService.Create(task)
+	taskID, err := taskService.Create(context.Background(), task)
 	require.NoError(t, err, "创建测试任务失败")
 	return int(taskID)
 }
