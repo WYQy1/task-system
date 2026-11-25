@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -20,6 +21,8 @@ func parseID(c *gin.Context, wrongMsg string) (int, bool) {
 
 func respondError(c *gin.Context, err error, notFoundMsg, fallback string) {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		c.JSON(http.StatusGatewayTimeout, gin.H{"message": "请求超时"})
 	case errors.Is(err, service.ErrInvalidPassword):
 		c.JSON(http.StatusBadRequest, gin.H{"message": "密码不能少于6位"})
 	case errors.Is(err, service.ErrWrongPassword):

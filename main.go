@@ -6,13 +6,14 @@ import (
 	"task-system/middleware"
 	"task-system/repository"
 	"task-system/service"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
-
+	r.Use(middleware.Timeout(5 * time.Second))
 	userRepo := repository.NewUserRepository(DB)
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
