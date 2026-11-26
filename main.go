@@ -1,19 +1,33 @@
+// @title           Task System API
+// @version         1.2.1
+// @description     员工-任务管理系统接口文档（JWT 鉴权）
+// @host            localhost:8080
+// @BasePath        /
+// @securityDefinitions.apikey BearerAuth
+// @in              header
+// @name            Authorization
+// @description     格式：Bearer <token>
 package main
 
 import (
 	"log"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "task-system/docs"
 	"task-system/handler"
 	"task-system/middleware"
 	"task-system/repository"
 	"task-system/service"
-	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.Timeout(5 * time.Second))
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	userRepo := repository.NewUserRepository(DB)
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
