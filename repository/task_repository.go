@@ -118,7 +118,7 @@ func (r *TaskRepository) Delete(ctx context.Context, id int) (int64, error) {
 func (r *TaskRepository) ScanOverdue(ctx context.Context, limit int) ([]model.Task, error) {
 	rows, err := r.db.QueryContext(ctx,
 		"SELECT "+taskColumns+" FROM tasks "+
-			"WHERE status <> 'completed' AND due_at IS NOT NULL AND due_at < NOW() AND reminded_at IS NULL "+
+			"WHERE status <> 'completed' AND due_at IS NOT NULL AND due_at < UTC_TIMESTAMP() AND reminded_at IS NULL "+
 			"ORDER BY due_at ASC LIMIT ?", limit)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (r *TaskRepository) ScanOverdue(ctx context.Context, limit int) ([]model.Ta
 // MarkReminded 写入提醒时间。带上 reminded_at IS NULL 条件，多个实例同时扫也不会重复提醒。
 func (r *TaskRepository) MarkReminded(ctx context.Context, id int) (int64, error) {
 	result, err := r.db.ExecContext(ctx,
-		"UPDATE tasks SET reminded_at = NOW() WHERE id = ? AND reminded_at IS NULL", id)
+		"UPDATE tasks SET reminded_at = UTC_TIMESTAMP() WHERE id = ? AND reminded_at IS NULL", id)
 	if err != nil {
 		return 0, err
 	}

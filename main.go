@@ -1,5 +1,5 @@
 // @title           Task System API
-// @version         1.3.0
+// @version         1.3.1
 // @description     员工-任务管理系统接口文档（JWT 鉴权 + 按角色授权 + 超期提醒）
 // @host            localhost:8080
 // @BasePath        /
@@ -38,10 +38,10 @@ func SetupRouter() *gin.Engine {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	userRepo := repository.NewUserRepository(DB)
 	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
 
 	authService := service.NewAuthService(userRepo)
 	authHandler := handler.NewAuthHandler(authService)
+	userHandler := handler.NewUserHandler(userService, authService)
 
 	taskRepo := repository.NewTaskRepository(DB)
 	taskService := service.NewTaskService(userRepo, taskRepo)
@@ -75,6 +75,10 @@ func SetupRouter() *gin.Engine {
 func main() {
 	if err := InitDB(); err != nil {
 		log.Fatal("数据库连接失败：", err)
+	}
+	// 密钥缺失或过短就不启动：JWT 是整个鉴权体系唯一的信任根
+	if err := middleware.InitJWTSecret(); err != nil {
+		log.Fatal("JWT 配置错误：", err)
 	}
 
 	// 收到 Ctrl+C / SIGTERM 时取消这个 ctx：HTTP 服务和后台扫描器都盯着它退出

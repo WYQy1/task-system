@@ -8,32 +8,41 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"task-system/model"
+	"task-system/repository"
 )
 
-func TestUserServiceCreate(t *testing.T) {
-	db, userService := newTestUserService(t)
-	id, err := userService.Create(context.Background(), model.User{Name: "  Alice  ", Age: 23, Gender: " 男 "})
+// 新增员工统一走注册（AuthService.Register）：与登录同一套密码哈希和校验，
+// 也顺带避免管理员代建时写出空密码账号。
+func TestAuthServiceRegister(t *testing.T) {
+	db := openTestDB(t)
+	authService := NewAuthService(repository.NewUserRepository(db))
+
+	id, err := authService.Register(context.Background(), "  Alice  ", "secret123", 23, " 男 ")
 	require.NoError(t, err)
 	cleanupTestUser(t, db, id)
 	checkUser(t, getUserFromDB(t, db, id), int(id), "Alice", 23, "male")
 }
 
-func TestUserServiceCreateInvalidInput(t *testing.T) {
+func TestAuthServiceRegisterInvalidInput(t *testing.T) {
 	tests := []struct {
-		name    string
-		user    model.User
-		wantErr error
+		name     string
+		userName string
+		password string
+		age      int
+		gender   string
+		wantErr  error
 	}{
-		{"空姓名", model.User{Name: "", Age: 20, Gender: "male"}, ErrInvalidUserName},
-		{"姓名超长", model.User{Name: strings.Repeat("测", 21), Age: 20, Gender: "male"}, ErrNameTooLong},
-		{"年龄为0", model.User{Name: "张三", Age: 0, Gender: "male"}, ErrInvalidUserAge},
-		{"年龄过高", model.User{Name: "张三", Age: 151, Gender: "male"}, ErrInvalidUserAge},
-		{"非法性别", model.User{Name: "张三", Age: 20, Gender: "unknown"}, ErrInvalidUserGender},
+		{"空姓名", "", "secret123", 20, "male", ErrInvalidUserName},
+		{"姓名超长", strings.Repeat("测", 21), "secret123", 20, "male", ErrNameTooLong},
+		{"密码过短", "张三", "123", 20, "male", ErrInvalidPassword},
+		{"年龄为0", "张三", "secret123", 0, "male", ErrInvalidUserAge},
+		{"年龄过高", "张三", "secret123", 151, "male", ErrInvalidUserAge},
+		{"非法性别", "张三", "secret123", 20, "unknown", ErrInvalidUserGender},
 	}
-	svc := NewUserService(nil)
+	svc := NewAuthService(nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.Create(context.Background(), tt.user)
+			_, err := svc.Register(context.Background(), tt.userName, tt.password, tt.age, tt.gender)
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}

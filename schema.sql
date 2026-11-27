@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     token_version INT NOT NULL DEFAULT 0,
     -- 0=普通员工，1=管理员；注册接口固定写入 0，管理员由 SQL 手工提升
-    role TINYINT NOT NULL DEFAULT 0
-
+    role TINYINT NOT NULL DEFAULT 0,
+    -- 登录名唯一：注册或代建账号撞名时直接返回 409，而不是留下两条同名账号
+    UNIQUE KEY uk_users_name (name)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -49,8 +50,9 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     token_version INT NOT NULL DEFAULT 0,
     -- 0=普通员工，1=管理员；注册接口固定写入 0，管理员由 SQL 手工提升
-    role TINYINT NOT NULL DEFAULT 0
-
+    role TINYINT NOT NULL DEFAULT 0,
+    -- 登录名唯一：注册或代建账号撞名时直接返回 409，而不是留下两条同名账号
+    UNIQUE KEY uk_users_name (name)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -82,8 +84,9 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     token_version INT NOT NULL DEFAULT 0,
     -- 0=普通员工，1=管理员；注册接口固定写入 0，管理员由 SQL 手工提升
-    role TINYINT NOT NULL DEFAULT 0
-
+    role TINYINT NOT NULL DEFAULT 0,
+    -- 登录名唯一：注册或代建账号撞名时直接返回 409，而不是留下两条同名账号
+    UNIQUE KEY uk_users_name (name)
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -109,3 +112,11 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- ALTER TABLE tasks  ADD COLUMN due_at DATETIME NULL, ADD COLUMN reminded_at DATETIME NULL;
 -- ALTER TABLE tasks  ADD INDEX idx_tasks_overdue (reminded_at, due_at);
 -- UPDATE users SET role = 1 WHERE id = 1;  -- 把要当管理员的那条账号提权
+
+-- ============================================================
+-- 5. v1.3.0 → v1.3.1 升级（已存在的库执行这一段即可，新建库跳过）
+-- ============================================================
+-- 升级前先确认没有重名账号，否则 UNIQUE 索引建不上：
+--   SELECT name, COUNT(*) c FROM users GROUP BY name HAVING c > 1;
+-- 有结果就先改名或合并，再执行：
+-- ALTER TABLE users ADD UNIQUE KEY uk_users_name (name);   -- 三个库各执行一次

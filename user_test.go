@@ -23,7 +23,7 @@ func TestCreateUser(t *testing.T) {
 	setupTestDB(t)
 	r := SetupRouter()
 	_, token := createTestAdminWithToken(t) // 新增员工是管理员权限
-	body := `{"name":"TestUser","age":23,"gender":"男"}`
+	body := `{"name":"TestUser","age":23,"gender":"男","password":"secret123"}`
 	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
 	assert.Equal(t, 201, w.Code)
 	var response struct {
@@ -49,7 +49,7 @@ func TestCreateUserInvalid(t *testing.T) {
 	var before int
 	require.NoError(t, DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&before))
 
-	body := `{"name":"","age":23,"gender":"男"}`
+	body := `{"name":"","age":23,"gender":"男","password":"secret123"}`
 	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
 	assert.Equal(t, 400, w.Code)
 	var after int
@@ -65,7 +65,7 @@ func TestGetUser(t *testing.T) {
 	assert.Equal(t, 200, w.Code)
 	var user model.User
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &user))
-	checkUser(t, user, id, "TestUser", 23, "male")
+	checkUser(t, user, id, testUserName(t, id), 23, "male")
 }
 
 func TestGetUsers(t *testing.T) {
@@ -81,7 +81,7 @@ func TestGetUsers(t *testing.T) {
 	for _, user := range users {
 		if int64(user.ID) == userID {
 			found = true
-			checkUser(t, user, userID, "TestUser", 23, "male")
+			checkUser(t, user, userID, testUserName(t, userID), 23, "male")
 		}
 	}
 	assert.True(t, found, "员工列表中没有找到刚创建的测试员工")
@@ -142,7 +142,7 @@ func TestCreateUserForbiddenForEmployee(t *testing.T) {
 
 	var before int
 	require.NoError(t, DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&before))
-	body := `{"name":"越权新增","age":23,"gender":"男"}`
+	body := `{"name":"越权新增","age":23,"gender":"男","password":"secret123"}`
 	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
 	assert.Equal(t, 403, w.Code)
 	assert.Equal(t, `{"message":"无权访问该员工的数据"}`, strings.TrimSpace(w.Body.String()))
@@ -156,6 +156,7 @@ func TestUserCrossAccessForbidden(t *testing.T) {
 	setupTestDB(t)
 	_, tokenA := createTestUserWithToken(t)
 	userB := createTestUser(t)
+	wantName := testUserName(t, userB) // 员工姓名现在唯一，助手账号叫 TestUser<N>，不能写死
 	r := SetupRouter()
 
 	body := `{"name":"Hacked","age":30,"gender":"男"}`
@@ -171,7 +172,7 @@ func TestUserCrossAccessForbidden(t *testing.T) {
 	// B 没有被改、也没有被删
 	var name string
 	require.NoError(t, DB.QueryRow("SELECT name FROM users WHERE id = ?", userB).Scan(&name))
-	assert.Equal(t, "TestUser", name)
+	assert.Equal(t, wantName, name)
 
 	// 管理员可以跨员工查
 	_, adminToken := createTestAdminWithToken(t)
@@ -221,7 +222,7 @@ func TestUpdateUserInvalid(t *testing.T) {
 	var user model.User
 	require.NoError(t, DB.QueryRow("SELECT id, name, age, gender FROM users WHERE id = ?", id).
 		Scan(&user.ID, &user.Name, &user.Age, &user.Gender))
-	checkUser(t, user, id, "TestUser", 23, "male")
+	checkUser(t, user, id, testUserName(t, id), 23, "male")
 }
 
 func TestDeleteUser(t *testing.T) {
@@ -260,4 +261,35 @@ func TestTokenVersionRevoked(t *testing.T) {
 	w := performRequestWithToken(r, "GET", "/users", token, nil)
 	assert.Equal(t, 401, w.Code)
 	assert.Equal(t, `{"message":"token 已失效，请重新登录"}`, w.Body.String())
+}
+
+// 唯一索引生效后，重名要在写库前就被拒（409），而不是变成两条同名账号。
+func TestCreateUserDuplicateName(t *testing.T) {
+	setupTestDB(t)
+	r := SetupRouter()
+	_, token := createTestAdminWithToken(t)
+	body := `{"name":"DupUser","age":23,"gender":"男","password":"secret123"}`
+
+	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
+	require.Equal(t, 201, w.Code)
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &created))
+	t.Cleanup(func() { deleteTestUser(t, created.ID) })
+
+	w = performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
+	assert.Equal(t, 409, w.Code)
+	assert.Equal(t, `{"message":"该姓名已被注册"}`, strings.TrimSpace(w.Body.String()))
+}
+
+// 代建账号必须自带密码：以前这条路径会写出一条空密码账号，谁都登不上。
+func TestCreateUserShortPassword(t *testing.T) {
+	setupTestDB(t)
+	r := SetupRouter()
+	_, token := createTestAdminWithToken(t)
+	body := `{"name":"ShortPwd","age":23,"gender":"男","password":"123"}`
+	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
+	assert.Equal(t, 400, w.Code)
+	assert.Equal(t, `{"message":"密码不能少于6位"}`, strings.TrimSpace(w.Body.String()))
 }

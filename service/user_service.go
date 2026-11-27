@@ -56,24 +56,6 @@ func normalizeAndValidateUserGender(gender string) (string, error) {
 
 }
 
-func (s *UserService) Create(ctx context.Context, user model.User) (int64, error) {
-	name, err := normalizeAndValidateUserName(user.Name)
-	if err != nil {
-		return 0, err
-	}
-	user.Name = name
-	err = validateUserAge(user.Age)
-	if err != nil {
-		return 0, err
-	}
-	gender, err := normalizeAndValidateUserGender(user.Gender)
-	if err != nil {
-		return 0, err
-	}
-	user.Gender = gender
-	return s.userRepo.Create(ctx, user)
-}
-
 func (s *UserService) GetByID(ctx context.Context, id int) (model.User, error) {
 	err := validateUserID(id)
 	if err != nil {
@@ -113,6 +95,9 @@ func (s *UserService) Update(ctx context.Context, user model.User) (int64, error
 	}
 	user.Gender = gender
 	rowsAffected, err := s.userRepo.Update(ctx, user)
+	if errors.Is(err, repository.ErrDuplicateName) {
+		return 0, ErrNameExists
+	}
 	if err != nil {
 		return 0, err
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"task-system/internal/dsn"
 	"task-system/model"
 	"task-system/repository"
 
@@ -22,10 +23,10 @@ func openTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("加载环境配置失败: %v", err)
 	}
 
-	dsn := os.Getenv("SERVICE_TEST_DB_DSN")
-	require.NotEmpty(t, dsn, "SERVICE_TEST_DB_DSN 未设置")
+	dsnEnv := os.Getenv("SERVICE_TEST_DB_DSN")
+	require.NotEmpty(t, dsnEnv, "SERVICE_TEST_DB_DSN 未设置")
 
-	db, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", dsn.WithUTCSession(dsnEnv))
 	require.NoError(t, err, "打开测试数据库失败")
 
 	if err := db.Ping(); err != nil {

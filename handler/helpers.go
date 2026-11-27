@@ -45,6 +45,8 @@ func respondError(c *gin.Context, err error, notFoundMsg, fallback string) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "任务状态不合法"})
 	case errors.Is(err, service.ErrUserNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"message": notFoundMsg})
+	case errors.Is(err, service.ErrNameExists):
+		c.JSON(http.StatusConflict, gin.H{"message": "该姓名已被注册"})
 	case errors.Is(err, service.ErrTaskNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"message": "任务不存在"})
 	case err != nil:

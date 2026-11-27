@@ -3,7 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
+
 	"golang.org/x/crypto/bcrypt"
+
 	"task-system/model"
 	"task-system/repository"
 )
@@ -17,7 +20,8 @@ func NewAuthService(userRepo *repository.UserRepository) *AuthService {
 }
 
 func validatePassword(password string) error {
-	if len(password) < 6 {
+	// 按字符数而不是字节数：中文密码一个字符占 3 字节，用 len() 会把 3 个字当成 9 个
+	if utf8.RuneCountInString(password) < 6 {
 		return ErrInvalidPassword
 	}
 	return nil
@@ -43,7 +47,11 @@ func (a *AuthService) Register(ctx context.Context, name, password string, age i
 		return 0, err
 	}
 	user := model.User{Name: name, Age: age, Gender: gender, Password: string(hash)}
-	return a.userRepo.Create(ctx, user)
+	id, err := a.userRepo.Create(ctx, user)
+	if errors.Is(err, repository.ErrDuplicateName) {
+		return 0, ErrNameExists
+	}
+	return id, err
 }
 
 func (a *AuthService) Login(ctx context.Context, name, password string) (model.User, error) {

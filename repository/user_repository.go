@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/go-sql-driver/mysql"
+
 	"task-system/model"
 )
 
@@ -15,7 +17,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// **凡是 `XxxContext` 的方法，第一个实参永远是 ctx**。`QueryRowContext(ctx, sql)
+// GetTokenVersion 返回当前 token 版本号；登出时 +1，旧 token 因此失效。
 func (r *UserRepository) GetTokenVersion(ctx context.Context, userID int) (int, error) {
 	var version int
 	err := r.db.QueryRowContext(ctx, "SELECT token_version FROM users WHERE id=?", userID).Scan(&version)
@@ -58,9 +60,11 @@ func (r *UserRepository) IncrementTokenVersion(ctx context.Context, userID int) 
 }
 
 func (r *UserRepository) Create(ctx context.Context, user model.User) (int64, error) {
-	result, err := r.db.ExecContext(ctx, "INSERT INTO users (name, age, gender,password) VALUES (?, ?, ?,?)", user.Name, user.Age, user.Gender, user.Password)
+	result, err := r.db.ExecContext(ctx,
+		"INSERT INTO users (name, age, gender, password) VALUES (?, ?, ?, ?)",
+		user.Name, user.Age, user.Gender, user.Password)
 	if err != nil {
-		return 0, err
+		return 0, mapWriteErr(err)
 	}
 	return result.LastInsertId()
 }
@@ -134,9 +138,11 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]model.User, error) {
 }
 
 func (r *UserRepository) Update(ctx context.Context, user model.User) (int64, error) {
-	result, err := r.db.ExecContext(ctx, "UPDATE users SET name = ?, age = ?, gender = ? WHERE id = ?", user.Name, user.Age, user.Gender, user.ID)
+	result, err := r.db.ExecContext(ctx,
+		"UPDATE users SET name = ?, age = ?, gender = ? WHERE id = ?",
+		user.Name, user.Age, user.Gender, user.ID)
 	if err != nil {
-		return 0, err
+		return 0, mapWriteErr(err)
 	}
 	return result.RowsAffected()
 }
@@ -166,4 +172,13 @@ func (r *UserRepository) DeleteWithTasks(ctx context.Context, id int) error {
 	}
 
 	return tx.Commit()
+}
+
+// mapWriteErr 把唯一索引冲突（MySQL 1062）翻译成业务错误，其他错误原样上抛。
+func mapWriteErr(err error) error {
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return ErrDuplicateName
+	}
+	return err
 }

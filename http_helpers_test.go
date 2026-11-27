@@ -1,16 +1,37 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"task-system/middleware"
 	"task-system/model"
 )
+
+// TestMain 先给一份足长的测试密钥：InitJWTSecret 要求 ≥32 字节，
+// 而本地 .env 里的开发密钥可能很短，不覆盖的话一启动就报错。
+func TestMain(m *testing.M) {
+	if len(strings.TrimSpace(os.Getenv("JWT_SECRET"))) < 32 {
+		os.Setenv("JWT_SECRET", "test-secret-0123456789abcdef0123456789")
+	}
+	os.Exit(m.Run())
+}
+
+// users.name 上有唯一索引，助手账号必须用互不相同的名字。
+var testUserSeq atomic.Int64
+
+func nextTestUserName() string {
+	return fmt.Sprintf("TestUser%d", testUserSeq.Add(1))
+}
 
 func setupTestDB(t *testing.T) {
 	t.Helper()
@@ -23,14 +44,14 @@ func setupTestDB(t *testing.T) {
 func testToken(t *testing.T) string {
 	t.Helper()
 	id := createTestUser(t)
-	token, err := middleware.GenerateToken(int(id), 0) // 中间件只验签名，不查库，随便给个 id 即可
+	token, err := middleware.GenerateToken(int(id), 0)
 	require.NoError(t, err, "生成测试token失败")
 	return token
 }
 
 func createTestUser(t *testing.T) int64 {
 	t.Helper()
-	result, err := DB.Exec("INSERT INTO users (name, age, gender, password) VALUES (?, ?, ?, ?)", "TestUser", 23, "male", "test-password")
+	result, err := DB.Exec("INSERT INTO users (name, age, gender, password) VALUES (?, ?, ?, ?)", nextTestUserName(), 23, "male", "test-password")
 	require.NoError(t, err, "插入测试员工失败")
 	userID, err := result.LastInsertId()
 	require.NoError(t, err, "获取员工ID失败")
@@ -43,7 +64,7 @@ func createTestUser(t *testing.T) int64 {
 // createTestUserWithRole 插入指定角色的员工，用来造管理员账号。
 func createTestUserWithRole(t *testing.T, role int) int64 {
 	t.Helper()
-	result, err := DB.Exec("INSERT INTO users (name, age, gender, password, role) VALUES (?, ?, ?, ?, ?)", "TestUser", 23, "male", "test-password", role)
+	result, err := DB.Exec("INSERT INTO users (name, age, gender, password, role) VALUES (?, ?, ?, ?, ?)", nextTestUserName(), 23, "male", "test-password", role)
 	require.NoError(t, err, "插入测试员工失败")
 	userID, err := result.LastInsertId()
 	require.NoError(t, err, "获取员工ID失败")
@@ -68,6 +89,14 @@ func createTestUserWithToken(t *testing.T) (int64, string) {
 	token, err := middleware.GenerateToken(int(id), 0)
 	require.NoError(t, err, "生成测试token失败")
 	return id, token
+}
+
+// testUserName 读回助手账号的真实姓名：名字由 nextTestUserName 生成，测试里不能写死。
+func testUserName(t *testing.T, userID int64) string {
+	t.Helper()
+	var name string
+	require.NoError(t, DB.QueryRow("SELECT name FROM users WHERE id = ?", userID).Scan(&name))
+	return name
 }
 
 func deleteTestUser(t *testing.T, userID int64) {

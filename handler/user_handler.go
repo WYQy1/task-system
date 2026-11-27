@@ -11,16 +11,20 @@ import (
 
 type UserHandler struct {
 	userService *service.UserService
+	authService *service.AuthService
 }
 
-func NewUserHandler(userService *service.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewUserHandler(userService *service.UserService, authService *service.AuthService) *UserHandler {
+	return &UserHandler{userService: userService, authService: authService}
 }
 
+// CreateUserRequest 管理员代建账号。密码必填：没有密码的员工既登不上来，
+// 也会在 users 表里留下一条 password 为空的脏数据。
 type CreateUserRequest struct {
-	Name   string `json:"name"`
-	Age    int    `json:"age"`
-	Gender string `json:"gender"`
+	Name     string `json:"name"`
+	Age      int    `json:"age"`
+	Gender   string `json:"gender"`
+	Password string `json:"password"`
 }
 
 type UpdateUserRequest struct {
@@ -55,8 +59,8 @@ func GetHello(c *gin.Context) {
 
 // CreateUser 新增员工
 //
-//	@Summary		新增员工
-//	@Description	创建一条员工记录
+//	@Summary		新增员工（管理员）
+//	@Description	管理员代建账号，密码必填（≥6 位，入库前 bcrypt 哈希）
 //	@Tags			用户
 //	@Accept			json
 //	@Produce		json
@@ -64,6 +68,8 @@ func GetHello(c *gin.Context) {
 //	@Success		201		{object}	map[string]interface{}
 //	@Failure		400		{object}	map[string]interface{}
 //	@Failure		401		{object}	map[string]interface{}
+//	@Failure		403		{object}	map[string]interface{} "无权访问该员工的数据"
+//	@Failure		409		{object}	map[string]interface{} "该姓名已被注册"
 //	@Security		BearerAuth
 //	@Router			/users [post]
 func (h *UserHandler) CreateUser(c *gin.Context) {
@@ -80,8 +86,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
 		return
 	}
-	user := model.User{Name: request.Name, Age: request.Age, Gender: request.Gender}
-	id, err := h.userService.Create(c.Request.Context(), user)
+	id, err := h.authService.Register(c.Request.Context(), request.Name, request.Password, request.Age, request.Gender)
 	if err != nil {
 		respondError(c, err, "", "员工添加失败")
 		return

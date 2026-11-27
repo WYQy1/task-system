@@ -15,4 +15,5 @@ var (
 	ErrInvalidTaskID     = errors.New("任务ID不合法")
 	ErrInvalidPassword   = errors.New("密码不合法")
 	ErrWrongPassword     = errors.New("密码错误")
+	ErrNameExists        = errors.New("该姓名已被注册")
 )
