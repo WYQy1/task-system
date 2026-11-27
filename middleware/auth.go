@@ -13,6 +13,13 @@ import (
 	"task-system/repository"
 )
 
+// 认证通过后写进 gin.Context 的键。handler 层只从这里取当前登录者，
+// 不再相信请求里传来的 id，避免"改个 URL 就变成别人"的水平越权。
+const (
+	CtxUserID   = "userID"
+	CtxUserRole = "userRole"
+)
+
 func GenerateToken(userID int, tokenVersion int) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	//`time.Now()` → 当前时间  `Add(24 * time.Hour)` → 往后加 24 小时 `.Unix()` → 转成 Unix 时间戳（一个整数，表示秒数）
@@ -67,8 +74,8 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc { //中
 			c.Abort()
 			return
 		}
-		// 5. 查库里当前的版本号（顺带校验用户是否还存在）
-		currentVer, err := userRepo.GetTokenVersion(c.Request.Context(), int(userID))
+		// 5. 查库里当前的版本号和角色（顺带校验用户是否还存在）
+		currentVer, role, err := userRepo.GetAuthInfo(c.Request.Context(), int(userID))
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "token 无效"})
 			c.Abort()
@@ -80,7 +87,8 @@ func AuthMiddleware(userRepo *repository.UserRepository) gin.HandlerFunc { //中
 			c.Abort()
 			return
 		}
-		c.Set("userID", userID)
+		c.Set(CtxUserID, userID)
+		c.Set(CtxUserRole, role)
 		// 7. 校验通过，放行
 		c.Next()
 	}

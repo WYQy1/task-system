@@ -40,6 +40,28 @@ func createTestUser(t *testing.T) int64 {
 	return userID
 }
 
+// createTestUserWithRole 插入指定角色的员工，用来造管理员账号。
+func createTestUserWithRole(t *testing.T, role int) int64 {
+	t.Helper()
+	result, err := DB.Exec("INSERT INTO users (name, age, gender, password, role) VALUES (?, ?, ?, ?, ?)", "TestUser", 23, "male", "test-password", role)
+	require.NoError(t, err, "插入测试员工失败")
+	userID, err := result.LastInsertId()
+	require.NoError(t, err, "获取员工ID失败")
+	t.Cleanup(func() {
+		deleteTestUser(t, userID)
+	})
+	return userID
+}
+
+// createTestAdminWithToken 造一个管理员并返回它的 token：新增员工、跨员工查询都要用它。
+func createTestAdminWithToken(t *testing.T) (int64, string) {
+	t.Helper()
+	id := createTestUserWithRole(t, model.RoleAdmin)
+	token, err := middleware.GenerateToken(int(id), 0)
+	require.NoError(t, err, "生成测试token失败")
+	return id, token
+}
+
 func createTestUserWithToken(t *testing.T) (int64, string) {
 	t.Helper()
 	id := createTestUser(t)

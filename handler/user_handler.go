@@ -67,6 +67,14 @@ func GetHello(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Router			/users [post]
 func (h *UserHandler) CreateUser(c *gin.Context) {
+	v, authed := currentViewer(c)
+	if !authed {
+		return
+	}
+	if !v.isAdmin() {
+		respondForbidden(c)
+		return
+	}
 	var request CreateUserRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "请求格式错误"})
@@ -89,6 +97,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 //	@Param		id	path	int	true	"员工ID"
 //	@Success	200	{object}	model.User
 //	@Failure	404	{object}	map[string]interface{}
+//	@Failure	403	{object}	map[string]interface{} "无权访问该员工的数据"
 //	@Security	BearerAuth
 //	@Router		/users/{id} [get]
 func (h *UserHandler) GetUser(c *gin.Context) {
@@ -96,9 +105,8 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 	if !ok {
 		return
 	}
-	user, err := h.userService.GetByID(c.Request.Context(), id)
-	if err != nil {
-		respondError(c, err, "员工不存在", "查询员工失败")
+	user, allowed := fetchUserForViewer(c, h.userService, id)
+	if !allowed {
 		return
 	}
 	c.JSON(http.StatusOK, user)
@@ -110,9 +118,24 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 //	@Tags		用户
 //	@Produce	json
 //	@Success	200	{array}	model.User
+//	@Failure	403	{object}	map[string]interface{} "无权访问该员工的数据"
 //	@Security	BearerAuth
 //	@Router		/users [get]
 func (h *UserHandler) GetUsers(c *gin.Context) {
+	v, authed := currentViewer(c)
+	if !authed {
+		return
+	}
+	// 列表同样不能泄露别人的数据：管理员看全部，普通员工只能看到自己。
+	if !v.isAdmin() {
+		user, err := h.userService.GetByID(c.Request.Context(), v.ID)
+		if err != nil {
+			respondError(c, err, "员工不存在", "查询员工失败")
+			return
+		}
+		c.JSON(http.StatusOK, []model.User{user})
+		return
+	}
 	users, err := h.userService.GetAll(c.Request.Context())
 	if err != nil {
 		respondError(c, err, "", "查询员工失败")
@@ -131,11 +154,15 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 //	@Param		request	body	UpdateUserRequest	true	"员工信息"
 //	@Success	200		{object}	map[string]interface{}
 //	@Failure	404		{object}	map[string]interface{}
+//	@Failure	403	{object}	map[string]interface{} "无权访问该员工的数据"
 //	@Security	BearerAuth
 //	@Router		/users/{id} [put]
 func (h *UserHandler) UpdateUser(c *gin.Context) {
 	id, ok := parseID(c, "员工ID格式错误")
 	if !ok {
+		return
+	}
+	if _, allowed := fetchUserForViewer(c, h.userService, id); !allowed {
 		return
 	}
 	var request UpdateUserRequest
@@ -160,6 +187,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 //	@Param		id	path	int	true	"员工ID"
 //	@Success	200	{object}	map[string]interface{}
 //	@Failure	404	{object}	map[string]interface{}
+//	@Failure	403	{object}	map[string]interface{} "无权访问该员工的数据"
 //	@Security	BearerAuth
 //	@Router		/users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
@@ -167,6 +195,10 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if _, allowed := fetchUserForViewer(c, h.userService, id); !allowed {
+		return
+	}
+	// 越权校验通过后再执行：删除会级联删掉该员工名下的任务，只允许本人或管理员。
 	err := h.userService.Delete(c.Request.Context(), id)
 	if err != nil {
 		respondError(c, err, "删除的员工不存在", "删除员工失败")

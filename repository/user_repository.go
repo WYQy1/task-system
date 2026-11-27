@@ -27,6 +27,21 @@ func (r *UserRepository) GetTokenVersion(ctx context.Context, userID int) (int, 
 	}
 	return version, nil
 }
+
+// GetAuthInfo 一次取出鉴权需要的两个字段：token 版本号和角色。
+// 中间件每次请求都要调，所以合并成一条 SQL，省掉一次库往返。
+func (r *UserRepository) GetAuthInfo(ctx context.Context, userID int) (int, int, error) {
+	var version, role int
+	err := r.db.QueryRowContext(ctx, "SELECT token_version, role FROM users WHERE id=?", userID).Scan(&version, &role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, ErrUserNotFound
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	return version, role, nil
+}
+
 func (r *UserRepository) IncrementTokenVersion(ctx context.Context, userID int) (int64, error) {
 	result, err := r.db.ExecContext(ctx, "UPDATE users SET token_version = token_version + 1 WHERE id = ?", userID)
 	if err != nil {
@@ -55,7 +70,7 @@ func scanUser(scanner interface{ Scan(...any) error }) (model.User, error) {
 	var age sql.NullInt64
 	var gender sql.NullString
 
-	err := scanner.Scan(&user.ID, &user.Name, &age, &gender)
+	err := scanner.Scan(&user.ID, &user.Name, &age, &gender, &user.Role)
 	if err != nil {
 		return model.User{}, err
 	}
@@ -69,7 +84,7 @@ func scanUser(scanner interface{ Scan(...any) error }) (model.User, error) {
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, id int) (model.User, error) {
-	user, err := scanUser(r.db.QueryRowContext(ctx, "SELECT id, name, age, gender FROM users WHERE id = ?", id))
+	user, err := scanUser(r.db.QueryRowContext(ctx, "SELECT id, name, age, gender, role FROM users WHERE id = ?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -82,7 +97,7 @@ func (r *UserRepository) GetByName(ctx context.Context, name string) (model.User
 	var user model.User
 	var age sql.NullInt64
 	var gender sql.NullString
-	err := r.db.QueryRowContext(ctx, "SELECT id, name, age, gender,password FROM users WHERE name = ?", name).Scan(&user.ID, &user.Name, &age, &gender, &user.Password)
+	err := r.db.QueryRowContext(ctx, "SELECT id, name, age, gender, role, password FROM users WHERE name = ?", name).Scan(&user.ID, &user.Name, &age, &gender, &user.Role, &user.Password)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrUserNotFound
 	}
@@ -98,7 +113,7 @@ func (r *UserRepository) GetByName(ctx context.Context, name string) (model.User
 	return user, nil
 }
 func (r *UserRepository) GetAll(ctx context.Context) ([]model.User, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT id, name, age, gender FROM users ORDER BY id ASC")
+	rows, err := r.db.QueryContext(ctx, "SELECT id, name, age, gender, role FROM users ORDER BY id ASC")
 	if err != nil {
 		return nil, err
 	}

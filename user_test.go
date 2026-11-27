@@ -22,7 +22,7 @@ func TestPing(t *testing.T) {
 func TestCreateUser(t *testing.T) {
 	setupTestDB(t)
 	r := SetupRouter()
-	token := testToken(t)
+	_, token := createTestAdminWithToken(t) // 新增员工是管理员权限
 	body := `{"name":"TestUser","age":23,"gender":"男"}`
 	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
 	assert.Equal(t, 201, w.Code)
@@ -45,7 +45,7 @@ func TestCreateUser(t *testing.T) {
 func TestCreateUserInvalid(t *testing.T) {
 	setupTestDB(t)
 	r := SetupRouter()
-	token := testToken(t)
+	_, token := createTestAdminWithToken(t)
 	var before int
 	require.NoError(t, DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&before))
 
@@ -71,7 +71,7 @@ func TestGetUser(t *testing.T) {
 func TestGetUsers(t *testing.T) {
 	setupTestDB(t)
 	userID := createTestUser(t)
-	token := testToken(t)
+	_, token := createTestAdminWithToken(t) // 看全部员工需要管理员
 	r := SetupRouter()
 	w := performRequestWithToken(r, "GET", "/users", token, nil)
 	assert.Equal(t, 200, w.Code)
@@ -109,15 +109,74 @@ func TestGetUsersOnlySelf(t *testing.T) {
 	require.NoError(t, err)
 	_, err = DB.Exec("DELETE FROM users")
 	require.NoError(t, err)
-	_, token := createTestUserWithToken(t)
+
+	// 两个员工都在库里，普通员工只能看到自己那一条
+	userA, tokenA := createTestUserWithToken(t)
+	userB := createTestUser(t)
 	r := SetupRouter()
-	w := performRequestWithToken(r, "GET", "/users", token, nil)
+
+	w := performRequestWithToken(r, "GET", "/users", tokenA, nil)
 	assert.Equal(t, 200, w.Code)
 	var users []model.User
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &users))
-	assert.NotNil(t, users)
-	assert.Len(t, users, 1)
-	assert.Equal(t, "TestUser", users[0].Name)
+	require.Len(t, users, 1, "普通员工不该看到其他员工")
+	assert.Equal(t, userA, int64(users[0].ID))
+
+	// 管理员能看到全部
+	_, adminToken := createTestAdminWithToken(t)
+	w = performRequestWithToken(r, "GET", "/users", adminToken, nil)
+	assert.Equal(t, 200, w.Code)
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &users))
+	ids := make(map[int64]bool, len(users))
+	for _, u := range users {
+		ids[int64(u.ID)] = true
+	}
+	assert.True(t, ids[userA], "管理员列表缺少A")
+	assert.True(t, ids[userB], "管理员列表缺少B")
+}
+
+func TestCreateUserForbiddenForEmployee(t *testing.T) {
+	setupTestDB(t)
+	_, token := createTestUserWithToken(t) // 普通员工
+	r := SetupRouter()
+
+	var before int
+	require.NoError(t, DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&before))
+	body := `{"name":"越权新增","age":23,"gender":"男"}`
+	w := performRequestWithToken(r, "POST", "/users", token, strings.NewReader(body))
+	assert.Equal(t, 403, w.Code)
+	assert.Equal(t, `{"message":"无权访问该员工的数据"}`, strings.TrimSpace(w.Body.String()))
+
+	var after int
+	require.NoError(t, DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&after))
+	assert.Equal(t, before, after, "越权请求不该写库")
+}
+
+func TestUserCrossAccessForbidden(t *testing.T) {
+	setupTestDB(t)
+	_, tokenA := createTestUserWithToken(t)
+	userB := createTestUser(t)
+	r := SetupRouter()
+
+	body := `{"name":"Hacked","age":30,"gender":"男"}`
+	w := performRequestWithToken(r, "PUT", "/users/"+strconv.FormatInt(userB, 10), tokenA, strings.NewReader(body))
+	assert.Equal(t, 403, w.Code)
+
+	w = performRequestWithToken(r, "GET", "/users/"+strconv.FormatInt(userB, 10), tokenA, nil)
+	assert.Equal(t, 403, w.Code)
+
+	w = performRequestWithToken(r, "DELETE", "/users/"+strconv.FormatInt(userB, 10), tokenA, nil)
+	assert.Equal(t, 403, w.Code)
+
+	// B 没有被改、也没有被删
+	var name string
+	require.NoError(t, DB.QueryRow("SELECT name FROM users WHERE id = ?", userB).Scan(&name))
+	assert.Equal(t, "TestUser", name)
+
+	// 管理员可以跨员工查
+	_, adminToken := createTestAdminWithToken(t)
+	w = performRequestWithToken(r, "GET", "/users/"+strconv.FormatInt(userB, 10), adminToken, nil)
+	assert.Equal(t, 200, w.Code)
 }
 
 func TestUpdateUser(t *testing.T) {
