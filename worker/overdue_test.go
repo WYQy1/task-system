@@ -17,10 +17,11 @@ import (
 // fakeStore 模拟任务表：MarkReminded 之后任务就从"待提醒"里消失，
 // 和真实 SQL 的 WHERE reminded_at IS NULL 行为一致。
 type fakeStore struct {
-	mu       sync.Mutex
-	pending  []model.Task
-	reminded map[int]int
-	scanErr  error
+	mu         sync.Mutex
+	pending    []model.Task
+	reminded   map[int]int
+	scanErr    error
+	markCtxErr []error
 }
 
 func newFakeStore(tasks int) *fakeStore {
@@ -51,6 +52,8 @@ func (f *fakeStore) ScanOverdue(ctx context.Context, limit int) ([]model.Task, e
 func (f *fakeStore) MarkReminded(ctx context.Context, id int) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// 记下调用这一刻 ctx 的状态：真实 SQL 在 ctx 已取消时会直接返回错误
+	f.markCtxErr = append(f.markCtxErr, ctx.Err())
 	f.reminded[id]++
 	for i, task := range f.pending {
 		if task.ID == id {
@@ -59,6 +62,12 @@ func (f *fakeStore) MarkReminded(ctx context.Context, id int) (int64, error) {
 		}
 	}
 	return 1, nil
+}
+
+func (f *fakeStore) markCtxErrors() []error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]error(nil), f.markCtxErr...)
 }
 
 func (f *fakeStore) remindedCount() map[int]int {
@@ -286,4 +295,52 @@ func TestScannerStopsPromptlyOnCancel(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("取消后 1s 内没有退出")
 	}
+}
+
+// blockingNotifier 卡在 Notify 里，直到测试放行；用来在"提醒已开始、尚未写回标记"的瞬间发退出信号。
+type blockingNotifier struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingNotifier) Notify(ctx context.Context, task model.Task) error {
+	b.once.Do(func() { close(b.started) })
+	<-b.release
+	return nil
+}
+
+// 提醒已经发出去了，此时进程收到退出信号：reminded_at 仍必须写成功。
+// 否则进程重启后会重新扫到同一条任务，用户收到重复提醒。
+func TestMarkRemindedSurvivesCancel(t *testing.T) {
+	store := newFakeStore(1)
+	notifier := &blockingNotifier{started: make(chan struct{}), release: make(chan struct{})}
+	scanner := NewScanner(store, notifier, Config{Interval: time.Hour, Workers: 1, BatchSize: 1})
+	scanner.logf = t.Logf
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		scanner.Run(ctx)
+		close(done)
+	}()
+
+	select {
+	case <-notifier.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("扫描器没有在启动后立刻扫描")
+	}
+
+	cancel()                // 模拟收到 SIGTERM
+	close(notifier.release) // 提醒动作此刻完成
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("扫描器没有在取消后退出")
+	}
+
+	require.Len(t, store.markCtxErrors(), 1)
+	assert.NoError(t, store.markCtxErrors()[0], "写回 reminded_at 用的 ctx 不应是已取消的")
+	assert.Equal(t, map[int]int{1: 1}, store.remindedCount())
 }

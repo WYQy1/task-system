@@ -144,14 +144,24 @@ func (s *Scanner) scanOnce(ctx context.Context, jobs chan<- model.Task) {
 	}
 }
 
+// markTimeout 是写回 reminded_at 的独立超时：这一刻进程可能正在退出，
+// 不能再用会被一起取消的那个 ctx 计时。
+const markTimeout = 5 * time.Second
+
 // handle 提醒单条任务：提醒成功才写 reminded_at。
-// 写失败或提醒失败都不标记，下一轮会重扫到同一条，宁可能重复也不漏提醒。
+// 写失败或提醒失败都不标记，下一轮会重扫到同一条，宁可重复也不漏提醒。
 func (s *Scanner) handle(ctx context.Context, task model.Task) {
 	if err := s.notifier.Notify(ctx, task); err != nil {
 		s.logf("提醒失败 task_id=%d：%v", task.ID, err)
 		return
 	}
-	if _, err := s.store.MarkReminded(ctx, task.ID); err != nil {
+
+	// 提醒已经发出去了，标记就必须落地：若这里被退出信号取消，
+	// 下一轮会把同一条任务再提醒一遍。WithoutCancel 切断取消信号，
+	// 但仍保留 ctx 里的值（trace id 之类），再叠一个自己的超时兜底。
+	markCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), markTimeout)
+	defer cancel()
+	if _, err := s.store.MarkReminded(markCtx, task.ID); err != nil {
 		s.logf("标记已提醒失败 task_id=%d：%v", task.ID, err)
 	}
 }
