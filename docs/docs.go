@@ -325,7 +325,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "创建一条员工记录",
+                "description": "管理员代建账号，密码必填（≥6 位，入库前 bcrypt 哈希）",
                 "consumes": [
                     "application/json"
                 ],
@@ -335,7 +335,7 @@ const docTemplate = `{
                 "tags": [
                     "用户"
                 ],
-                "summary": "新增员工",
+                "summary": "新增员工（管理员）",
                 "parameters": [
                     {
                         "description": "员工信息",
@@ -364,6 +364,20 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "该姓名已被注册",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -706,6 +720,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "password": {
+                    "type": "string"
                 }
             }
         },
@@ -832,7 +849,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.3.0",
+	Version:          "1.3.1",
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},

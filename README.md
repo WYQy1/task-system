@@ -1,6 +1,6 @@
 # 任务管理系统（Task System）
 
-**v1.3.0** — Go + Gin + MySQL 的员工/任务管理后端，Handler / Service / Repository / Model 四层。v1.3.0 在 JWT 鉴权、context 全链路超时、Swagger 之上，补了按角色的授权模型与超期任务的背景扫描。
+**v1.3.1** — Go + Gin + MySQL 的员工/任务管理后端，Handler / Service / Repository / Model 四层。在 JWT 鉴权、context 全链路超时、按角色授权、超期任务后台扫描之上，v1.3.1 收掉了几个会真出问题的细节：时间统一存 UTC、`JWT_SECRET` 启动强校验、员工姓名唯一、查库故障不再伪装成 401、退出时提醒标记必须落地。
 
 ## 技术栈
 
@@ -14,6 +14,8 @@
 | bcrypt | 密码哈希 |
 | swaggo/swag + gin-swagger | 接口文档 |
 | testify | 测试断言 |
+| Docker Compose | 本地一键拉起 MySQL + 服务 |
+| GitHub Actions | CI：gofmt / vet / build / `go test -race` |
 
 ## 功能
 
@@ -23,6 +25,7 @@
 - **授权**：员工带 `role`（0 普通 / 1 管理员）。受保护接口统一从 `ctx` 取 `userID` 与 `role`，只能动自己的数据，跨员工访问 403；新增员工、查看全部员工仅管理员可用
 - **超期提醒**：后台每分钟捞一批「未完成 + 已过截止时间 + 未提醒过」的任务，交给固定大小的 worker 池并发提醒；成功才写 `reminded_at`
 - **文档**：Swagger UI，Authorize 后可直接调试受保护接口
+- **约束**：员工姓名唯一（撞名 409）；密码至少 6 个字符（按字符数算，中文密码不会被少算）
 
 ## 项目架构
 
@@ -104,6 +107,31 @@ for i := 0; i < cfg.Workers; i++ {
 
 取舍：单次提醒若比扫描周期还长，同一任务可能被两个 worker 同时提醒（数据库只保证 `reminded_at` 不被重复写）。彻底解决要进程内 in-flight 集合（单实例）或分布式锁（多实例）。
 
+## v1.3.1 的修复：四个「看着能跑、上线会疼」的点
+
+### 1. 时间统一到 UTC
+
+驱动和 MySQL 会话各管一头，只改一处就会差出时区：
+
+- `database.go` 统一在 DSN 上补 `parseTime=true&loc=UTC&time_zone='+00:00'`（`internal/dsn.WithUTCSession`，已存在的参数不覆盖）
+- 超期扫描的 SQL 从 `NOW()` 改成 `UTC_TIMESTAMP()`：`NOW()` 取的是会话时区，一旦有人改了连接的 `time_zone`，判定就偏了
+- `created_at` 默认值仍是 `CURRENT_TIMESTAMP`，在 UTC 会话下即 UTC 时间
+
+### 2. `JWT_SECRET` 缺失或过短直接拒绝启动
+
+`middleware.InitJWTSecret()` 要求至少 32 字节，否则 `log.Fatal`。短密钥可被暴力枚举，签名等于没签。生成方式：`openssl rand -hex 32`。
+
+### 3. 员工姓名唯一 + 代建账号必须有密码
+
+- `users.name` 加 `UNIQUE KEY uk_users_name`；Repository 把 MySQL 1062 错误 `errors.As` 成 `repository.ErrDuplicateName`，Service 转 `ErrNameExists`，Handler 映射 409
+- 管理员 `POST /users` 以前会写出一条空密码账号（谁都登不上），现在复用 `AuthService.Register`，密码必填且走同一套 bcrypt
+
+### 4. 鉴权失败不再一律 401
+
+`AuthMiddleware` 按错误分支：用户不存在 → 401「token 无效」；`context.DeadlineExceeded` → 504；其余数据库错误 → 500。以前查库超时也回 401，客户端会疯狂重试登录。
+
+另外，worker 在写 `reminded_at` 时用 `context.WithTimeout(context.WithoutCancel(ctx), 5s)`：提醒已经发出去了，标记就必须落地，否则进程重启后同一条任务会被重复提醒。
+
 ## 项目结构
 
 ```text
@@ -114,10 +142,14 @@ task-system/
 ├── model/           # User / Task
 ├── middleware/      # auth.go（JWT）、timeout.go（超时）
 ├── worker/          # overdue.go（超期扫描：ticker + worker pool + 优雅退出）
+├── internal/dsn/    # DSN 会话参数归一（UTC）
 ├── docs/            # swag init 生成物，勿手改
 ├── main.go          # 依赖注入、路由注册、优雅退出
 ├── database.go      # 连接初始化与连接池
 ├── schema.sql       # 正式库 + 两个测试库的表结构
+├── Dockerfile       # 多阶段构建，运行镜像不含 Go 工具链
+├── docker-compose.yml
+├── .github/workflows/ci.yml
 ├── *_test.go        # 根目录：HTTP 全链路集成测试
 └── README.md
 ```
@@ -126,16 +158,24 @@ task-system/
 
 ## 快速开始
 
+本地跑：
+
 ```bash
-cp .env.example .env      # 填 DB_DSN / TEST_DB_DSN / SERVICE_TEST_DB_DSN / JWT_SECRET
+cp .env.example .env      # 填 DB_DSN / TEST_DB_DSN / SERVICE_TEST_DB_DSN / JWT_SECRET（≥32 字节）
 mysql -u root -p < schema.sql
 go mod tidy && go run .
+```
+
+或者一条命令（MySQL 8.4 + 服务，首次启动自动执行 `schema.sql`）：
+
+```bash
+docker compose up --build
 ```
 
 - 服务：http://localhost:8080
 - 文档：http://localhost:8080/swagger/index.html
 
-从 v1.2.x 升级：执行 `schema.sql` 末尾「4. v1.2.x → v1.3.0 升级」的 `ALTER`（`ADD COLUMN` 不幂等，别重复跑），再把自己的账号提为管理员（注册接口固定写 `role = 0`，没开注册管理员的口子）：
+从 v1.2.x 升级：执行 `schema.sql` 末尾「4. v1.2.x → v1.3.0 升级」的 `ALTER`（`ADD COLUMN` 不幂等，别重复跑）；从 v1.3.0 升级到 v1.3.1：先查重名（`SELECT name, COUNT(*) c FROM users GROUP BY name HAVING c > 1;`）并处理，再执行「5. v1.3.0 → v1.3.1 升级」里的 `ALTER TABLE ... ADD UNIQUE KEY`。然后把 `.env` 里的 `JWT_SECRET` 换成 ≥32 字节的随机串。再把自己的账号提为管理员（注册接口固定写 `role = 0`，没开注册管理员的口子）：
 
 ```bash
 mysql -u root -p task_system -e "UPDATE users SET role = 1 WHERE id = 1"
@@ -151,22 +191,22 @@ go vet ./...
 gofmt -l .
 ```
 
-83 个测试函数、18 组 `t.Run` 表驱动：根目录 42（HTTP 全链路）、`service/` 34、`worker/` 5、`middleware/` 2。
+88 个测试函数、18 组 `t.Run` 表驱动：根目录 45（HTTP 全链路）、`service/` 34、`worker/` 6、`middleware/` 3。
 
 - 测试库隔离：`task_system_test` 给 HTTP 集成测试，`task_system_service_test` 给 Service 层
 - `worker/` 用 fake store / fake notifier，不碰数据库，可单跑：`go test ./worker/ -count=1 -v`
-- 并发部分用竞态检测器验过：`CGO_ENABLED=1 go test ./... -race -count=1`（需 gcc）
+- 并发部分用竞态检测器验过：`CGO_ENABLED=1 go test ./... -race -count=1`（需 gcc）；CI 里每次都跑这一条
 
 ## 已知限制
 
 - 超期提醒没有进程内 in-flight 去重：单次提醒超过扫描周期时可能重复提醒（数据库只保证 `reminded_at` 不被重复写）
 - 提醒只打日志（`LogNotifier`），未接邮件 / IM
 - 路由风格不统一：读单条是 `GET /users/tasks/:id`，改/删是 `PUT /tasks/:id`、`DELETE /tasks/:id`（历史遗留，改动要同步文档）
-- `AuthMiddleware` 查库失败一律 401，超时与数据库故障被误判成身份错误
-- `users.name` 无 UNIQUE 约束，同名可重复注册
 - 登出为全设备失效，不能只踢单个设备
 
 ## 版本记录
+
+**v1.3.1** — 时间统一 UTC（DSN 参数 + `UTC_TIMESTAMP()`）、`JWT_SECRET` 启动强校验、`users.name` 唯一（撞名 409）、`AuthMiddleware` 区分 401/500/504、worker 写标记用 `context.WithoutCancel`、Dockerfile + compose + GitHub Actions CI
 
 **v1.3.0** — 基于角色的授权（`role` + `viewer.canAccess`，跨员工 403）、任务截止时间与超期后台扫描（ticker + 有界 worker 池 + ctx 取消 + 优雅退出）、`schema.sql` 补三库升级段与 `idx_tasks_overdue` 索引
 
@@ -183,6 +223,6 @@ gofmt -l .
 - 统一响应结构（code / message / data）
 - 任务列表分页与状态筛选
 - 超期提醒接真实通知渠道，并加 in-flight 去重
-- Dockerfile + compose，一条命令拉起
 - 数据库迁移工具，消除 `schema.sql` 的三库重复 DDL
 - 结构化日志
+- 把 `service/task_service.go` 与 `handler/authz.go` 中重复的用户存在性查询合并成一次

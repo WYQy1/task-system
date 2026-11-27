@@ -1,0 +1,36 @@
+# 一条命令拉起 MySQL + 服务：
+#   docker compose up --build
+# 然后访问 http://localhost:8080/ping 、文档 http://localhost:8080/swagger/index.html
+services:
+  mysql:
+    image: mysql:8.4
+    # 服务端会话默认 UTC，和 DSN 里的 time_zone 参数保持一致
+    command: --default-time-zone=+00:00
+    environment:
+      MYSQL_ROOT_PASSWORD: taskpass
+    ports:
+      - "3306:3306"
+    volumes:
+      # 首次启动时自动执行：建三个库 + 建表 + 建索引
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-ptaskpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_DSN: "root:taskpass@tcp(mysql:3306)/task_system?parseTime=true&charset=utf8mb4"
+      # 至少要 32 字节，不够服务会直接拒绝启动
+      JWT_SECRET: "${JWT_SECRET:-0123456789abcdef0123456789abcdef}"
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:
