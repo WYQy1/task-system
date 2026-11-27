@@ -4,6 +4,9 @@ definitions:
     properties:
       description:
         type: string
+      due_at:
+        description: 截止时间，RFC3339，例如 2026-12-01T18:00:00+08:00；不传表示不设截止
+        type: string
       title:
         type: string
     type: object
@@ -38,6 +41,8 @@ definitions:
     properties:
       description:
         type: string
+      due_at:
+        type: string
       status:
         type: string
       title:
@@ -58,8 +63,14 @@ definitions:
         type: string
       description:
         type: string
+      due_at:
+        description: 截止时间，为空表示不设截止
+        type: string
       id:
         type: integer
+      reminded_at:
+        description: 超期提醒时间，作为去重标记
+        type: string
       status:
         type: string
       title:
@@ -77,13 +88,15 @@ definitions:
         type: integer
       name:
         type: string
+      role:
+        type: integer
     type: object
 host: localhost:8080
 info:
   contact: {}
-  description: 员工-任务管理系统接口文档（JWT 鉴权）
+  description: 员工-任务管理系统接口文档（JWT 鉴权 + 按角色授权 + 超期提醒）
   title: Task System API
-  version: 1.2.1
+  version: 1.3.0
 paths:
   /auth/login:
     post:
@@ -209,6 +222,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -242,6 +260,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -263,6 +286,11 @@ paths:
             items:
               $ref: '#/definitions/model.User'
             type: array
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
       security:
       - BearerAuth: []
       summary: 员工列表
@@ -318,6 +346,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -342,6 +375,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/model.User'
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -375,6 +413,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -402,6 +445,11 @@ paths:
             items:
               $ref: '#/definitions/model.Task'
             type: array
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -435,6 +483,11 @@ paths:
           schema:
             additionalProperties: true
             type: object
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:
@@ -460,6 +513,11 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/model.Task'
+        "403":
+          description: 无权访问该员工的数据
+          schema:
+            additionalProperties: true
+            type: object
         "404":
           description: Not Found
           schema:

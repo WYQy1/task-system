@@ -223,6 +223,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -262,6 +269,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -294,6 +308,13 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/model.User"
                             }
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -381,6 +402,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/model.Task"
                         }
                     },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -419,6 +447,13 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/model.User"
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
@@ -472,6 +507,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -506,6 +548,13 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问该员工的数据",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -552,6 +601,13 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/model.Task"
                             }
+                        }
+                    },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "404": {
@@ -605,6 +661,13 @@ const docTemplate = `{
                             "additionalProperties": true
                         }
                     },
+                    "403": {
+                        "description": "无权访问该员工的数据",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -621,6 +684,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "description": {
+                    "type": "string"
+                },
+                "due_at": {
+                    "description": "截止时间，RFC3339，例如 2026-12-01T18:00:00+08:00；不传表示不设截止",
                     "type": "string"
                 },
                 "title": {
@@ -676,6 +743,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "due_at": {
+                    "type": "string"
+                },
                 "status": {
                     "type": "string"
                 },
@@ -707,8 +777,16 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "due_at": {
+                    "description": "截止时间，为空表示不设截止",
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "reminded_at": {
+                    "description": "超期提醒时间，作为去重标记",
+                    "type": "string"
                 },
                 "status": {
                     "type": "string"
@@ -735,6 +813,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "role": {
+                    "type": "integer"
                 }
             }
         }
@@ -751,12 +832,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.2.1",
+	Version:          "1.3.0",
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Task System API",
-	Description:      "员工-任务管理系统接口文档（JWT 鉴权）",
+	Description:      "员工-任务管理系统接口文档（JWT 鉴权 + 按角色授权 + 超期提醒）",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",
