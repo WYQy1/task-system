@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -278,4 +279,64 @@ func TestUpdateTaskInvalidInput(t *testing.T) {
 			checkTask(t, task, taskID, userID, "原始任务", "原始描述", "pending")
 		})
 	}
+}
+
+// TestTaskCrossUserForbidden 越权路径：A 的 token 碰 B 的员工 id / 任务 id，必须 403 且不改库。
+func TestTaskCrossUserForbidden(t *testing.T) {
+	setupTestDB(t)
+	_, tokenA := createTestUserWithToken(t)
+	userB, tokenB := createTestUserWithToken(t)
+	taskB := createTestTask(t, userB, "B的任务", "不该被别人动")
+	r := SetupRouter()
+
+	// 在别人的名下建任务
+	w := performRequestWithToken(r, "POST", "/users/"+strconv.FormatInt(userB, 10)+"/tasks", tokenA, strings.NewReader(`{"title":"越权创建","description":"x"}`))
+	assert.Equal(t, 403, w.Code)
+
+	// 列别人的任务
+	w = performRequestWithToken(r, "GET", "/users/"+strconv.FormatInt(userB, 10)+"/tasks", tokenA, nil)
+	assert.Equal(t, 403, w.Code)
+
+	// 读 / 改 / 删别人的任务（注意：读用 /users/tasks/{id}，改和删用 /tasks/{id}，是仓库原有的路由风格）
+	readPath := "/users/tasks/" + strconv.FormatInt(taskB, 10)
+	mutatePath := "/tasks/" + strconv.FormatInt(taskB, 10)
+	w = performRequestWithToken(r, "GET", readPath, tokenA, nil)
+	assert.Equal(t, 403, w.Code)
+	w = performRequestWithToken(r, "PUT", mutatePath, tokenA, strings.NewReader(`{"title":"越权修改","description":"x","status":"completed"}`))
+	assert.Equal(t, 403, w.Code)
+	w = performRequestWithToken(r, "DELETE", mutatePath, tokenA, nil)
+	assert.Equal(t, 403, w.Code)
+
+	// 越权之后 B 的任务原样还在
+	var title, status string
+	require.NoError(t, DB.QueryRow("SELECT title, status FROM tasks WHERE id = ?", taskB).Scan(&title, &status))
+	assert.Equal(t, "B的任务", title)
+	assert.Equal(t, "pending", status)
+
+	// 主人自己读得到
+	w = performRequestWithToken(r, "GET", readPath, tokenB, nil)
+	assert.Equal(t, 200, w.Code)
+}
+
+// TestCreateTaskWithDueAt 截止时间按 RFC3339 进出，NULL 表示不设截止时间。
+func TestCreateTaskWithDueAt(t *testing.T) {
+	setupTestDB(t)
+	userID, token := createTestUserWithToken(t)
+	r := SetupRouter()
+
+	body := `{"title":"带截止时间的任务","description":"x","due_at":"2026-01-01T10:00:00+08:00"}`
+	w := performRequestWithToken(r, "POST", "/users/"+strconv.FormatInt(userID, 10)+"/tasks", token, strings.NewReader(body))
+	require.Equal(t, 201, w.Code)
+
+	var response struct {
+		ID int64 `json:"id"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+
+	tasksW := performRequestWithToken(r, "GET", "/users/tasks/"+strconv.FormatInt(response.ID, 10), token, nil)
+	require.Equal(t, 200, tasksW.Code)
+	var task model.Task
+	require.NoError(t, json.Unmarshal(tasksW.Body.Bytes(), &task))
+	require.NotNil(t, task.DueAt, "due_at 没有写进库")
+	assert.True(t, task.DueAt.Equal(time.Date(2026, 1, 1, 2, 0, 0, 0, time.UTC)))
 }
